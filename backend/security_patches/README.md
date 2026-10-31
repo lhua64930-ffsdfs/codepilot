@@ -8,6 +8,10 @@ advisories. Version-only scanners may still flag both packages.
 
 After installing backend requirements, from `backend` run:
 
+Stop existing backend processes before installation/patching, then start them
+again afterwards. Updating source files does not replace already imported code
+inside a running interpreter.
+
 ```powershell
 .\.venv\Scripts\python.exe -m security_patches --apply
 .\.venv\Scripts\python.exe -m security_patches
@@ -36,6 +40,10 @@ Do not change the manifest to accept a new version without reviewing its code.
 of each original and patched file. The originals were compared with the official
 wheels before generating the manifest. Patches only apply when those identities
 match. Installed RECORD hashes are updated to describe the modified files.
+Manifest revision 2 also accepts the explicitly listed revision-1 source hashes
+for upgrade; arbitrary modifications are still rejected. Inline Base64 must
+round-trip to its canonical encoding, avoiding decoder differences across
+supported Python versions.
 Original package copyright and Apache-2.0 license files are retained unchanged;
 the modifications are maintained by this project, not endorsed by upstream.
 

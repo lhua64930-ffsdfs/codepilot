@@ -1,5 +1,5 @@
 {
-  "revision": 1,
+  "revision": 2,
   "packages": [
     {
       "name": "diskcache",
@@ -23,12 +23,18 @@
         {
           "path": "ragas/metrics/collections/multi_modal_faithfulness/util.py",
           "upstream_sha256": "99808618a8574f0a1d666b4f20e7549b570ea7ac203aab448bfeb87596428fbe",
-          "patched_sha256": "6e257ee82b9aa39cc9c059a0c22f46cc1b2dba133f63c3cbaf2639f88d1a2188"
+          "patched_sha256": "139de1649f7a6a653af99bdc920282010c5507daf9a285aad20acb6e6c8a94f4",
+          "prior_patched_sha256": [
+            "6e257ee82b9aa39cc9c059a0c22f46cc1b2dba133f63c3cbaf2639f88d1a2188"
+          ]
         },
         {
           "path": "ragas/prompt/multi_modal_prompt.py",
           "upstream_sha256": "1b17adccfcdddf0cd8843f62accdd725417f49aca5cbd43d1607569f7a68fdb3",
-          "patched_sha256": "d9827e5f7a3ec0b987e69a982b5baf26e771a458bef128cd2f001e905bfb9799"
+          "patched_sha256": "dfe0ed610ce5b04650ee944d5b05dd8047b29f59b2974c6231969de899cd9a1f",
+          "prior_patched_sha256": [
+            "d9827e5f7a3ec0b987e69a982b5baf26e771a458bef128cd2f001e905bfb9799"
+          ]
         }
       ]
     }

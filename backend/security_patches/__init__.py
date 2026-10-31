@@ -71,6 +71,8 @@ try:
     decoded = base64.b64decode(match.group(2), validate=True)
 except (ValueError, binascii.Error):
     return None
+if base64.b64encode(decoded).decode("ascii") != match.group(2):
+    return None
 if len(decoded) > 10 * 1024 * 1024:
     return None
 return {"mime_type": match.group(1), "encoded_data": match.group(2)}''')
@@ -104,7 +106,7 @@ def apply_patches():
         digest = hashlib.sha256(data).hexdigest()
         if digest == item["patched_sha256"]:
             continue
-        if digest != item["upstream_sha256"]:
+        if digest not in [item["upstream_sha256"], *item.get("prior_patched_sha256", [])]:
             raise RuntimeError(f"Unknown upstream file hash: {item['path']}; refusing to patch")
         patched = patched_source(item["path"], data.decode("utf-8")).encode("utf-8")
         if hashlib.sha256(patched).hexdigest() != item["patched_sha256"]:

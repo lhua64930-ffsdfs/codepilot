@@ -105,3 +105,16 @@ def test_ragas_still_accepts_inline_images_and_rejects_invalid_or_large_data():
     assert ImageTextPromptValue(items=[])._try_process_base64_uri(uri)["encoded_data"] == content
     assert util._try_process_base64_uri("data:image/png;base64,AAAA=") is None
     assert util._try_process_base64_uri("data:image/png;base64," + "A" * (14 * 1024 * 1024)) is None
+
+
+def test_noncanonical_padding_is_rejected_even_with_a_lenient_decoder(monkeypatch):
+    from app.services.evals.ragas_runner import _ensure_ragas_compatibility
+    _ensure_ragas_compatibility()
+    from ragas.metrics.collections.multi_modal_faithfulness import util
+    from ragas.prompt.multi_modal_prompt import ImageTextPromptValue
+    # Python 3.11 accepts this redundant padding; emulate that on stricter
+    # interpreters so the security boundary does not depend on Python version.
+    monkeypatch.setattr(util.base64, "b64decode", lambda *args, **kwargs: b"\x00\x00\x00")
+    value = "data:image/png;base64,AAAA="
+    assert util._try_process_base64_uri(value) is None
+    assert ImageTextPromptValue(items=[])._try_process_base64_uri(value) is None
