@@ -130,6 +130,8 @@ def _ensure_ragas_compatibility() -> None:
     Collections API usable without downgrading LangChain/LangGraph.
     """
 
+    from security_patches import verify_installed_patches
+    verify_installed_patches()
     module_name = "langchain_community.chat_models.vertexai"
     if module_name in sys.modules:
         return

@@ -26,6 +26,8 @@ $env:NEXT_PUBLIC_API_BASE_URL = "http://127.0.0.1:$BackendPort"
 $env:PYTHONPATH = $backendDirectory
 Push-Location $backendDirectory
 try {
+    & $pythonPath -m security_patches --apply
+    if ($LASTEXITCODE -ne 0) { throw "依赖安全补丁检查失败" }
     & $pythonPath -m alembic upgrade head
     if ($LASTEXITCODE -ne 0) { throw "预览库迁移失败" }
     & $pythonPath (Join-Path $PSScriptRoot "seed_showcase.py")

@@ -51,6 +51,8 @@ $frontendProcess = $null
 try {
     Push-Location $backendDirectory
     try {
+        & $pythonPath -m security_patches --apply
+        if ($LASTEXITCODE -ne 0) { throw "依赖安全补丁检查失败。" }
         & $pythonPath -m alembic upgrade head
         if ($LASTEXITCODE -ne 0) { throw "数据库迁移失败。" }
     }

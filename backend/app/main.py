@@ -103,6 +103,8 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def initialize_services() -> None:
+        from security_patches import verify_installed_patches
+        verify_installed_patches()
         if settings.app_env.lower() == "production":
             if settings.demo_mode or settings.token_encryption_key == "change-me-in-local-dev" or not settings.github_webhook_secret:
                 raise RuntimeError("生产环境必须关闭 DEMO_MODE、设置独立的 TOKEN_ENCRYPTION_KEY 和 GITHUB_WEBHOOK_SECRET")

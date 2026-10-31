@@ -18,12 +18,17 @@ CI 使用 Python 3.11 和 Node.js 22，可采用相同版本准备环境。以�
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 python -m venv backend/.venv
 backend/.venv/Scripts/python.exe -m pip install --only-binary=:all: --index-url https://pypi.org/simple -r backend/requirements.txt
+Set-Location backend
+.venv/Scripts/python.exe -m security_patches --apply
+Set-Location ..
 Set-Location frontend
 npm ci --ignore-scripts
 Set-Location ..
 ```
 
 已有 `.env` 时保留原配置，不要直接覆盖。配置真实模型时只在本地环境文件填写密钥，不提交到 Git。
+
+安装或重装后端依赖后须执行 `python -m security_patches --apply`。应用启动和 Ragas 评测会校验这两个库的本地安全补丁；版本或源码不匹配会明确停止。详见 [补丁说明](../backend/security_patches/README.md)。前端安装后可运行 `npm run test:lint-compat` 检查修复版 minimatch 与旧 lint 插件的接口兼容性。
 
 ## 2A. 只看项目演示
 
