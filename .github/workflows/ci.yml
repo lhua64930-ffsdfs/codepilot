@@ -22,7 +22,8 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: backend/requirements.txt
-      - run: python -m pip install --only-binary=:all: --index-url https://pypi.org/simple -r requirements.txt
+      - run: >-
+          python -m pip install --only-binary=:all: --index-url https://pypi.org/simple -r requirements.txt
         working-directory: backend
       - run: python -m alembic upgrade head
         working-directory: backend
