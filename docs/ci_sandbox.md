@@ -12,7 +12,7 @@
 docker build -t codepilot-ci-python:local sandbox/python
 ```
 
-默认镜像只有 Python 3.12 和 pytest 8.3.5。项目依赖须由管理员在可信的镜像构建过程中预装，例如复制经审查的 requirements 文件并安装。请求不能指定镜像、安装脚本或环境变量。修改镜像后重新构建，通过 `CI_SANDBOX_IMAGE` 配置批准的标签或摘要。
+默认镜像只有 Python 3.12 和 pytest 9.2.0。项目依赖须由管理员在可信的镜像构建过程中预装，例如复制经审查的 requirements 文件并安装。请求不能指定镜像、安装脚本或环境变量。修改镜像后重新构建，通过 `CI_SANDBOX_IMAGE` 配置批准的标签或摘要。
 
 在根目录 `.env` 设置：
 

@@ -190,6 +190,7 @@ class RagasCollectionsScorer:
             llm = llm_factory(
                 model,
                 client=client,
+                cache=None,
                 temperature=0,
                 max_tokens=settings.ragas_judge_max_tokens,
             )

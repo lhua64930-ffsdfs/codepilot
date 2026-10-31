@@ -17,9 +17,9 @@ CI 使用 Python 3.11 和 Node.js 22，可采用相同版本准备环境。以�
 ```powershell
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 python -m venv backend/.venv
-backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+backend/.venv/Scripts/python.exe -m pip install --only-binary=:all: --index-url https://pypi.org/simple -r backend/requirements.txt
 Set-Location frontend
-npm ci
+npm ci --ignore-scripts
 Set-Location ..
 ```
 

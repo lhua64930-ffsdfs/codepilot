@@ -36,3 +36,13 @@
 - 前端个人令牌仅保存于当前标签页的 sessionStorage，部署时应使用 HTTPS。
 
 代码入口：[身份与范围](../../backend/app/services/authentication.py)、[权限](../../backend/app/services/permissions.py)、[草稿执行](../../backend/app/api/routes/action_drafts.py)、[工作区访问](../../backend/app/services/workspace_tools.py)。
+
+## 依赖来源与剩余风险（2026-10-31）
+
+本轮修复升级 FastAPI/Starlette、加密、文件解析、LangChain/LangGraph 和测试组件。新增的 20 个 Python wheel 均从官方文件域获取，下载前查询官方 PyPI 已知漏洞元数据，逐个核对官方 SHA-256 后扫描、离线安装；`pip check` 通过。前端使用官方 npm registry，45 个原镜像源条目与官方 integrity 值一致后归一为官方地址，并用 `npm ci --ignore-scripts` 重建依赖。归档哈希一致不代表发布者代码没有恶意行为，未提供全面安全保证。
+
+PostCSS 高危告警已通过固定修复版本消除。仍有 14 个 npm 中危依赖项，均为开发用 lint/minimatch 依赖链，不能把它们算作 14 个独立缺陷，也不能宣称告警归零。
+
+Ragas 0.4.3 的多模态文件/URL 处理存在已知 SSRF 公告，diskcache 的默认 pickle 序列化存在已知风险；公告没有列出可直接采用的修复版本。本项目只使用固定的七种文本/工具评测指标，显式传入 `cache=None`，不启用多模态指标或磁盘缓存，并增加回归检查。依赖包仍在环境中，这些约束不等于上游漏洞已修复。
+
+Docker 镜像的层漏洞、发布者签名，以及现有本机 PostgreSQL 二进制的历史来源尚未完成核验。部署配置仍包含第三方 `pgsty/silo` 镜像；本轮没有启动 Docker 或恢复项目服务，也没有在未验证数据兼容性的情况下替换存储镜像。恢复部署前应完成这些检查。Defender 的项目扫描未查询到指向项目目录的威胁记录，但不能由此断言机器或所有历史下载绝对安全。

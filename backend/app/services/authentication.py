@@ -81,7 +81,7 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> models.User
 
 async def authorize_api(request: Request, user: models.User = Depends(current_user), db: Session = Depends(get_db)) -> None:
     from app.services.permissions import has_permission
-    path = request.url.path
+    path = request.scope["path"]
     permission = "repo:read"
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         permission = "agent:run"
