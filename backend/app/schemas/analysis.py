@@ -78,6 +78,7 @@ class CIDebugOutput(BaseModel):
     is_merge_blocking: bool = True
     blocking_reason: str = ""
     confidence: float = Field(ge=0, le=1)
+    reproduction: dict | None = None
 
 
 class SafetyOutput(BaseModel):

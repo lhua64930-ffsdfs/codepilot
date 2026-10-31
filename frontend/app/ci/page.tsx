@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Card, GhostButton, PageTitle, PrimaryButton } from "@/components/ui/card";
 import { apiGet, apiPost } from "@/lib/api";
+import { CIReproduction } from "@/components/ci-reproduction";
 import type { Repository } from "@/lib/types";
 
 type WorkflowRun = {
@@ -80,6 +81,7 @@ export default function CIPage() {
           {selected?.logs_text && <pre className="mt-3 max-h-44 overflow-auto rounded-md border border-line bg-panel p-3 text-xs text-slate-700">{selected.logs_text}</pre>}
           <PrimaryButton onClick={analyze} disabled={!selected} className="mt-4">分析失败原因</PrimaryButton>
           {analysis && <pre className="mt-4 max-h-[520px] overflow-auto rounded-md border border-slate-800 bg-slate-950 p-4 text-xs text-slate-100">{analysis}</pre>}
+          {selected && <CIReproduction key={selected.id} runId={selected.id} failed={selected.conclusion === "failure"} />}
         </Card>
       </div>
     </>

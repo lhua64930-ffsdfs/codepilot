@@ -21,10 +21,11 @@ CodePilot 是一个面向软件研发团队的全栈 AI Agent 工程项目。它
 | 新 Issue 应该优先处理吗？ | 分析类别、优先级、复杂度、负责人候选与下一步行动 |
 | 这个 PR 有什么风险？ | 结合 diff 与 Review 评论输出风险、审查清单和测试建议 |
 | CI 为什么失败？ | 从失败 job、关键日志和变更上下文生成排障步骤 |
+| 可以实际验证 CI 失败吗？ | 可选启用离线 Docker 沙盒，在失败提交运行 pytest，保留日志、退出码与复现历史 |
 | 项目里的规则写在哪里？ | 检索项目文档与上传知识，回答中展示证据与引用 |
 | 建议能直接改 GitHub 吗？ | 先形成草稿，再由具备审批权限的人确认，记录执行审计 |
 
-**当前验证快照（2026-10-31）：220 项后端测试通过，TypeScript 检查通过，前端 Lint 零警告，Next.js 生产构建成功。**这些是工程验证结果，不等同于线上业务收益或模型准确率。
+**当前验证快照（2026-10-31）：247 项后端测试通过（含 4 项真实 Docker 沙盒验证），TypeScript 检查通过，前端 Lint 零警告，Next.js 生产构建成功。**这些是工程验证结果，不等同于线上业务收益或模型准确率。
 
 ## 项目界面
 
@@ -67,6 +68,7 @@ CodePilot 是一个面向软件研发团队的全栈 AI Agent 工程项目。它
 | 个人令牌 + 角色权限 + 仓库范围过滤 | 区分用户，阻止普通成员读取其他仓库的数据 | [身份与隔离](backend/app/services/authentication.py) |
 | 草稿状态原子抢占 + 人工确认 | 防止并发点击重复执行；外部结果不明时停止自动重试 | [草稿执行](backend/app/api/routes/action_drafts.py) |
 | 持久化任务、有限重试与显式迁移 | 改善重启恢复、同步失败保留数据和数据库升级的可靠性 | [任务队列](backend/app/services/jobs.py)、[迁移](backend/alembic/versions/0001_reliability.py) |
+| CI 失败复现沙盒 | 隔离执行失败提交的 pytest，为 CI 分析补充实际验证证据；限制网络、权限和资源 | [执行器](backend/app/services/ci_sandbox.py)、[启用与边界](docs/ci_sandbox.md) |
 | 固定评测集 + RAGAS + 回归检查 | 区分“程序跑通”和“回答质量达标”，保留逐题证据与评分 | [固定案例](docs/datas/evals/rag_cases.json)、[评测实现](backend/app/services/evals/ragas_runner.py) |
 
 专项工作流采用 **Planner → 专项 Agent → Observer → Synthesis**：规划任务及依赖，执行就绪任务，检查冲突与证据缺失，最后综合输出决策备忘录。详细过程见 [Agent 工作流](docs/architecture/agent_workflow.md)。
@@ -99,6 +101,8 @@ CodePilot 是一个面向软件研发团队的全栈 AI Agent 工程项目。它
 
 访问 `http://127.0.0.1:3019`。演示数据位于 `.data/docs-preview`，与现有业务库分开。截图复现与演示顺序见 [5 分钟演示指南](docs/demo_guide.md)。
 
+**可选：启用 CI 失败复现。**构建 `sandbox/python` 镜像、执行 `python -m alembic upgrade head`，并设置 `CI_SANDBOX_ENABLED=true`。随后在 CI 分析面板运行失败提交的 pytest，查看日志和退出码，再重新分析以引用验证结果。默认镜像需按项目预装依赖；命令失败不等于已复现原 CI 根因。完整步骤与限制见 [CI 复现沙盒](docs/ci_sandbox.md)。
+
 ## 文档导航
 
 | 文档 | 适合了解什么 |
@@ -111,6 +115,7 @@ CodePilot 是一个面向软件研发团队的全栈 AI Agent 工程项目。它
 | [RAG 与评测](docs/rag_and_evaluation.md) | 文档处理、检索、固定基线与质量门槛 |
 | [数据模型](docs/architecture/database_schema.md) | 核心实体与存储职责 |
 | [安全设计](docs/architecture/security.md) | 身份、仓库隔离、草稿执行与配置边界 |
+| [CI 复现沙盒](docs/ci_sandbox.md) | Docker 镜像、启用步骤、复现结果与执行边界 |
 | [API 导览](docs/api/openapi.md) | 核心 API 分组与 OpenAPI 使用 |
 | [可靠性升级](docs/architecture/reliability_upgrade.md) | 数据库迁移、令牌、后台任务与故障处理 |
 

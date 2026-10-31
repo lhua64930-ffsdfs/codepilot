@@ -2,7 +2,7 @@
 from sqlalchemy import inspect, text
 from app.db.models import Base
 
-REVISION = "0001_reliability"
+REVISION = "0002_ci_sandbox"
 
 
 def upgrade_schema(connection):

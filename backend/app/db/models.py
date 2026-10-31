@@ -189,6 +189,7 @@ class WorkflowRun(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     repo_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("repositories.id"), index=True)
     github_run_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    head_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
     name: Mapped[str] = mapped_column(String(300))
     status: Mapped[str] = mapped_column(String(80))
     conclusion: Mapped[str | None] = mapped_column(String(80), nullable=True)

@@ -20,10 +20,18 @@ class CIDebugAgent(BaseAgent):
         llm_output = await self.llm.chat_json(CI_DEBUG_PROMPT, {"workflow_run": input_data, "context": context})
         if llm_output:
             try:
-                return CIDebugOutput.model_validate(self._merge_with_fallback(llm_output, fallback)).model_dump()
+                return self._with_reproduction(CIDebugOutput.model_validate(self._merge_with_fallback(llm_output, fallback)).model_dump(), context)
             except Exception:
                 pass
-        return fallback
+        return self._with_reproduction(fallback, context)
+
+    def _with_reproduction(self, result: dict, context: dict) -> dict:
+        reproduction = context.get("reproduction")
+        result["reproduction"] = reproduction
+        if reproduction:
+            result["executed_steps"] = [*result.get("executed_steps", []),
+                f"沙盒验证状态：{reproduction.get('status')}。{reproduction.get('message', '')}"]
+        return result
 
     def _fallback_debug(self, input_data: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
         logs = (input_data.get("logs_text") or "").lower()
@@ -97,6 +105,9 @@ class CIDebugAgent(BaseAgent):
             merged["failure_type"] = fallback["failure_type"]
         if not merged.get("first_error"):
             merged["first_error"] = fallback["first_error"]
+        if fallback.get("is_merge_blocking"):
+            merged["is_merge_blocking"] = True
+            merged["blocking_reason"] = fallback["blocking_reason"]
         return merged
 
     def _classify_failure(self, logs: str) -> str:

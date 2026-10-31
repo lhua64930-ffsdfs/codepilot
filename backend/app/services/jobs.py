@@ -27,6 +27,7 @@ HANDLERS = {
     "sync_repository_by_id": "app.services.repos_sync",
     "_execute_rag_eval_job": "app.api.routes.evaluations",
     "_execute_rescore_job": "app.api.routes.evaluations",
+    "execute_ci_reproduction": "app.services.ci_sandbox",
 }
 LEASE_SECONDS = 120
 MAX_ATTEMPTS = 3
@@ -44,6 +45,11 @@ def _record_terminal_failure(db, job):
         target = db.get(EvalRun, target_id)
         if target is not None:
             target.result_json = {**(target.result_json or {}), "status": "error", "execution_status": "error", "quality_status": "incomplete", "progress": {"stage": "error", "message": job.error}}
+    elif job.kind == "execute_ci_reproduction":
+        from app.db.models import AnalysisResult
+        target = db.get(AnalysisResult, target_id)
+        if target is not None:
+            target.result_json = {**target.result_json, "status": "error", "message": job.error or "复现服务异常，请检查任务日志。"}
     elif job.kind == "process_knowledge_document":
         target = db.get(KnowledgeSourceDocument, target_id)
         if target is not None:

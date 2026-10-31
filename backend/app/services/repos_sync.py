@@ -144,6 +144,7 @@ async def _sync_repository(db: Session, repo: Repository, payload: RepoSyncReque
             run.name = item.get("name") or run.name
             run.status = item.get("status") or "unknown"
             run.conclusion = item.get("conclusion")
+            run.head_sha = item.get("head_sha")
             run.html_url = item.get("html_url")
             run.created_at = parse_github_datetime(item.get("created_at"))
             run.updated_at = parse_github_datetime(item.get("updated_at"))

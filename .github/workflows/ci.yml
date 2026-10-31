@@ -26,6 +26,13 @@ jobs:
         working-directory: backend
       - run: python -m pytest app/tests -q
         working-directory: backend
+      - name: Build offline CI sandbox image
+        run: docker build -t codepilot-ci-python:local sandbox/python
+      - name: Verify real sandbox isolation and lifecycle
+        run: python -m pytest app/tests/test_ci_sandbox.py -k real_docker -q
+        working-directory: backend
+        env:
+          CODEPILOT_SANDBOX_INTEGRATION: '1'
   frontend:
     runs-on: ubuntu-latest
     defaults:

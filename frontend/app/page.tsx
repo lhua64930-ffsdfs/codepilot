@@ -1,4 +1,5 @@
 "use client";
+import { CIReproduction } from "@/components/ci-reproduction";
 
 import { useStableCallback } from "@/lib/use-stable-callback";
 
@@ -3554,6 +3555,7 @@ function CIAnalysisOverlay({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <CIReproduction key={run.id} runId={run.id} failed={run.conclusion === "failure"} />
           {loading && !analysis && (
             <div className="rounded-md border border-line bg-panel p-4 text-sm text-slate-600">CI Agent 正在制定排查计划，并检查失败 job、错误日志、相关文件和最近 PR...</div>
           )}

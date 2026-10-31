@@ -1,17 +1,22 @@
 import asyncio
 import json
 import re
+from datetime import datetime, timezone
 from collections.abc import AsyncIterator
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import AnalysisResult, CodeRelation, CodeSymbol, Conversation, Document, PullRequest, Repository, WorkflowRun
 from app.db.session import get_db
-from app.schemas.ci import CIAnalysisResponse, WorkflowRunResponse
+from app.schemas.ci import CIAnalysisResponse, CIReproductionRequest, WorkflowRunResponse
+from app.core.config import settings
+from app.services.ci_sandbox import execute_ci_reproduction, latest_reproduction, validate_request
+from app.services.jobs import schedule_job
+from app.services.permissions import acting_user, write_audit_log
 from app.services.agents.ci_debug_agent import CIDebugAgent
 from app.services.chat_memory import ContextAssembler
 from app.services.code_search import search_repository_code
@@ -375,6 +380,10 @@ def _build_ci_analysis_context(db: Session, run: WorkflowRun, conversation_id: U
         "recent_prs": recent_prs,
         "conversation_evidence": chat_evidence,
     }
+    reproduction = latest_reproduction(db, run.id)
+    if reproduction:
+        # Tool evidence only: never let the model rewrite an execution result.
+        context["reproduction"] = reproduction.result_json
     counts = {
         "failed_jobs": len(failed_jobs),
         "failed_steps": len(failed_steps),
@@ -522,6 +531,53 @@ async def get_failed_jobs(run_id: UUID, db: Session = Depends(get_db)) -> dict:
         if job.get("conclusion") == "failure"
     ]
     return {"run_id": str(run.id), "workflow": run.name, "failed_jobs": failed_jobs}
+
+
+@router.post("/workflow-runs/{run_id}/reproductions", status_code=202)
+async def create_ci_reproduction(
+    run_id: UUID,
+    payload: CIReproductionRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> dict:
+    run = db.get(WorkflowRun, run_id)
+    if run is None:
+        raise HTTPException(404, "未找到 workflow 运行")
+    if not settings.ci_sandbox_enabled:
+        raise HTTPException(503, "CI 沙盒未启用，请按部署文档构建镜像并启用 CI_SANDBOX_ENABLED。")
+    if run.conclusion != "failure":
+        raise HTTPException(409, "仅对失败的 CI 运行创建复现任务。")
+    if not re.fullmatch(r"[0-9a-fA-F]{40}", run.head_sha or ""):
+        raise HTTPException(409, "缺少失败提交 SHA，请重新同步仓库的 CI 记录。")
+    try:
+        validate_request(payload.command, payload.working_directory)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    # Serialize creation per repository on PostgreSQL; request sessions retain
+    # the same repository scope used when looking up the workflow above.
+    db.query(Repository).filter_by(id=run.repo_id).with_for_update().one()
+    pending = db.query(AnalysisResult).filter_by(target_type="workflow_run", target_id=run.id, analysis_type="ci_reproduction").all()
+    if any(row.result_json.get("status") in {"queued", "running"} for row in pending):
+        raise HTTPException(409, "该 CI 已有复现任务正在执行。")
+    request = {**payload.model_dump(), "commit_sha": run.head_sha}
+    user = acting_user(db)
+    row = AnalysisResult(target_type="workflow_run", target_id=run.id, analysis_type="ci_reproduction",
+                         input_snapshot=request, result_json={"status": "queued", **request, "message": "等待隔离环境执行。"},
+                         created_at=datetime.now(timezone.utc))
+    db.add(row)
+    db.flush()
+    write_audit_log(db, user=user, repo_id=run.repo_id, action="ci.reproduce", target_type="workflow_run",
+                    target_id=str(run.id), request_json=request, result_json={"reproduction_id": str(row.id)})
+    schedule_job(db, background_tasks, execute_ci_reproduction, row.id)
+    return {"id": str(row.id), "result": row.result_json}
+
+
+@router.get("/workflow-runs/{run_id}/reproductions")
+async def get_ci_reproductions(run_id: UUID, db: Session = Depends(get_db)) -> list[dict]:
+    if db.get(WorkflowRun, run_id) is None:
+        raise HTTPException(404, "未找到 workflow 运行")
+    rows = db.query(AnalysisResult).filter_by(target_type="workflow_run", target_id=run_id, analysis_type="ci_reproduction").order_by(AnalysisResult.created_at.desc(), AnalysisResult.id.desc()).limit(20).all()
+    return [{"id": str(row.id), "result": row.result_json} for row in rows]
 
 
 @router.post("/workflow-runs/{run_id}/analyze", response_model=CIAnalysisResponse)

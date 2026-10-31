@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     prompt_cache_retention: str | None = None
     repo_checkout_dir: str = ".data/repos"
     upload_dir: str = ".data/uploads"
+    ci_sandbox_enabled: bool = False
+    ci_sandbox_image: str = "codepilot-ci-python:local"
+    ci_sandbox_timeout_seconds: int = 120
+    ci_sandbox_memory_mb: int = 512
+    ci_sandbox_cpus: float = 1.0
 
     token_encryption_key: str = "change-me-in-local-dev"
     demo_mode: bool = True

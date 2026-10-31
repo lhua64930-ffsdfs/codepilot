@@ -14,6 +14,7 @@ from app.db.models import ActionDraft, AgentRun, AgentTaskRun, AgentWorkflowRun,
 from app.db.session import get_db
 from app.schemas.chat import ChatHistoryMessage, ChatPlanExecuteRequest, ChatRequest, ChatResponse, PromptRecommendationRequest, PromptRecommendationResponse
 from app.services.agents.ci_debug_agent import CIDebugAgent
+from app.services.ci_sandbox import latest_reproduction
 from app.services.agents.chat_agent import ChatAgent, encode_sse
 from app.services.agents.issue_agent import IssueAgent
 from app.services.agents.planner_agent import PlannerAgent
@@ -661,6 +662,7 @@ def _build_engineering_workflow_runtime(
         workflow_run = claimed_target(task, "workflow_run", runs, selected_run)
         if workflow_run is None:
             return _skipped_workflow_result(task, "No synced CI run is available.")
+        reproduction = latest_reproduction(db, workflow_run.id)
         result = await CIDebugAgent().run(
             {
                 "name": workflow_run.name,
@@ -669,7 +671,8 @@ def _build_engineering_workflow_runtime(
                 "jobs": workflow_run.jobs or [],
                 "logs_text": workflow_run.logs_text,
             },
-            {**safe_context, **agent_skill_context("ci_debug_agent.analyze_workflow_run"), "repo_id": str(repo.id)},
+            {**safe_context, **agent_skill_context("ci_debug_agent.analyze_workflow_run"), "repo_id": str(repo.id),
+             "reproduction": reproduction.result_json if reproduction else None},
         )
         return WorkflowTaskResult(
             task_id=task.id,
@@ -1024,7 +1027,8 @@ def _build_conversation_tools(repo: Repository | None, conversation: Conversatio
                 "answer": _repo_health_answer(repo, issues, prs, runs) + "\n\n说明：这个仓库目前还没有同步到失败 CI 运行。",
                 "citations": [{"type": "repository", "id": str(repo.id), "title": repo.full_name}],
             }
-        result = await CIDebugAgent().run({"name": run.name, "status": run.status, "conclusion": run.conclusion, "jobs": run.jobs or [], "logs_text": run.logs_text}, agent_context(context) | {"repo_id": str(repo.id)})
+        reproduction = latest_reproduction(db, run.id)
+        result = await CIDebugAgent().run({"name": run.name, "status": run.status, "conclusion": run.conclusion, "jobs": run.jobs or [], "logs_text": run.logs_text}, agent_context(context) | {"repo_id": str(repo.id), "reproduction": reproduction.result_json if reproduction else None})
         return {
             "route": "ci_debug",
             "tool_calls": [{"tool_name": "ci_debug_agent.analyze_workflow_run", "arguments": {"run_id": str(run.id)}, "status": "success"}],
