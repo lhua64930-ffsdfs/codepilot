@@ -49,6 +49,12 @@ $backendProcess = $null
 $frontendProcess = $null
 
 try {
+    Push-Location $backendDirectory
+    try {
+        & $pythonPath -m alembic upgrade head
+        if ($LASTEXITCODE -ne 0) { throw "数据库迁移失败。" }
+    }
+    finally { Pop-Location }
     $backendProcess = Start-Process `
         -FilePath $pythonPath `
         -ArgumentList @("-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "$BackendPort") `

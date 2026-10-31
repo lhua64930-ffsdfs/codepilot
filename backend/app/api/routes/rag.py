@@ -1,3 +1,4 @@
+from app.services.jobs import schedule_job
 import asyncio
 import hashlib
 import re
@@ -221,7 +222,7 @@ async def upload_document(
     try:
         await asyncio.to_thread(stored_path.write_bytes, data)
         document.stored_path = str(stored_path)
-        db.commit()
+        schedule_job(db, background_tasks, process_knowledge_document, document.id)
     except Exception:
         db.rollback()
         try:
@@ -230,7 +231,6 @@ async def upload_document(
             pass
         raise
     db.refresh(document)
-    background_tasks.add_task(process_knowledge_document, document.id)
     return _document_response(document)
 
 
@@ -274,7 +274,7 @@ async def retry_document(
     document.error_message = None
     db.commit()
     db.refresh(document)
-    background_tasks.add_task(process_knowledge_document, document.id)
+    schedule_job(db, background_tasks, process_knowledge_document, document.id)
     return _document_response(document)
 
 

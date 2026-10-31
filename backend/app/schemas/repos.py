@@ -33,6 +33,8 @@ class RepoResponse(BaseModel):
     description: str | None = None
     default_branch: str | None = None
     last_sync_at: datetime | None = None
+    sync_status: str = "not_started"
+    sync_errors: list[str] = Field(default_factory=list)
     updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
@@ -65,3 +67,4 @@ class RepoSyncResponse(BaseModel):
     repo_id: UUID
     status: str
     synced: dict[str, int]
+    errors: list[str] = Field(default_factory=list)

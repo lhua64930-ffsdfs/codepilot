@@ -1,5 +1,7 @@
 "use client";
 
+import { useStableCallback } from "@/lib/use-stable-callback";
+
 import { useEffect, useState } from "react";
 import { Folder, Trash2 } from "lucide-react";
 
@@ -57,15 +59,15 @@ export default function ReposPage() {
   const selectedProvider = providers.find((item) => item.value === provider) ?? providers[0];
   const supportsRealConnect = provider === "github" || provider === "github_compatible";
 
-  async function refreshRepos(nextSelectedId?: string) {
+  const refreshRepos = useStableCallback(async function refreshRepos(nextSelectedId?: string) {
     const items = await apiGet<Repository[]>("/api/repos");
     setRepos(items);
     setSelectedRepoId(nextSelectedId || selectedRepoId || items[0]?.id || "");
-  }
+  });
 
   useEffect(() => {
     refreshRepos().catch(() => setRepos([]));
-  }, []);
+  }, [refreshRepos]);
 
   async function syncRepo(repoId: string) {
     const data = await apiPost<RepoSyncResult>(`/api/repos/${repoId}/sync`, {

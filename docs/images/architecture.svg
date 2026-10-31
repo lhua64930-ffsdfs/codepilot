@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="830" viewBox="0 0 1440 830" role="img" aria-labelledby="title desc">
+  <title id="title">CodePilot 系统架构</title><desc id="desc">Next.js 交互层经身份和仓库权限连接 FastAPI。ChatAgent 编排专项 Agent、RAG、工作区和记忆工具，使用 PostgreSQL、Milvus、GitHub 与模型服务；后台任务持久化，外部写入经人工确认。</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10" fill="none" stroke="#6b8a91" stroke-width="1.5"/></marker></defs>
+  <rect width="1440" height="830" rx="20" fill="#f5f8fa"/>
+  <g font-family="Segoe UI,Microsoft YaHei,Arial,sans-serif">
+    <text x="48" y="57" fill="#153d47" font-size="28" font-weight="700">CodePilot / 系统架构</text><text x="48" y="88" fill="#68828a" font-size="16">交互层 · 访问边界 · 智能分析 · 工程数据与后台任务</text>
+    <g stroke="#6b8a91" stroke-width="2" fill="none" marker-end="url(#arrow)">
+      <path d="M720 191v29"/><path d="M720 302v30"/><path d="M720 427v17H202v17"/><path d="M720 444H527v17"/><path d="M720 444H852v17"/><path d="M720 444H1207v17"/><path d="M202 550v38"/><path d="M527 550v38"/><path d="M852 550v38"/><path d="M1207 550v38"/>
+    </g>
+    <rect x="48" y="118" width="1344" height="73" rx="12" fill="#fff" stroke="#d8e3e7"/>
+    <text x="720" y="148" text-anchor="middle" fill="#183d47" font-size="22" font-weight="600">Next.js + TypeScript 研发工作台</text><text x="720" y="175" text-anchor="middle" fill="#67818a" font-size="16">项目总览 / 对话 / Issue · PR · CI / 知识库 / 草稿审批 / 评测</text>
+    <rect x="48" y="220" width="1344" height="82" rx="12" fill="#e7f5ef" stroke="#addbcb"/>
+    <text x="720" y="254" text-anchor="middle" fill="#175b50" font-size="22" font-weight="600">FastAPI · 个人令牌身份 · 角色权限 · 仓库成员隔离</text><text x="720" y="282" text-anchor="middle" fill="#4e786f" font-size="16">API 输入校验 / 服务编排 / 结构化响应 / SSE 事件</text>
+    <rect x="48" y="332" width="1344" height="95" rx="12" fill="#153d47"/>
+    <text x="720" y="369" text-anchor="middle" fill="#fff" font-size="24" font-weight="600">ChatAgent / 工具调用与上下文管理</text><text x="720" y="402" text-anchor="middle" fill="#baddd7" font-size="18">Planner → 专项 Agent → Observer → Synthesis · Skill Runtime · 工具轨迹与引用</text>
+    <g fill="#fff" stroke="#d8e3e7"><rect x="48" y="461" width="309" height="89" rx="12"/><rect x="373" y="461" width="309" height="89" rx="12"/><rect x="698" y="461" width="309" height="89" rx="12"/><rect x="1023" y="461" width="369" height="89" rx="12"/></g>
+    <g text-anchor="middle"><g fill="#183d47" font-size="20" font-weight="600"><text x="202" y="497">Issue / PR / CI 专项分析</text><text x="527" y="497">RAG / 记忆 / 工作区工具</text><text x="852" y="497">持久化后台任务</text><text x="1207" y="497">安全草稿与人工确认</text></g><g fill="#67818a" font-size="15"><text x="202" y="526">分类 · 审查 · 排障 · 周报</text><text x="527" y="526">文档检索与当前代码分流</text><text x="852" y="526">租约 · 恢复 · 有限重试</text><text x="1207" y="526">条件更新抢占执行权 · 审计记录</text></g></g>
+    <g fill="#eaf0f6" stroke="#cbd9e2"><rect x="48" y="588" width="309" height="87" rx="12"/><rect x="373" y="588" width="309" height="87" rx="12"/><rect x="698" y="588" width="309" height="87" rx="12"/><rect x="1023" y="588" width="369" height="87" rx="12"/></g>
+    <g text-anchor="middle"><g fill="#284e60" font-size="21" font-weight="600"><text x="202" y="624">GitHub REST API</text><text x="527" y="624">Milvus / 本地工作区</text><text x="852" y="624">PostgreSQL</text><text x="1207" y="624">GitHub 写入（确认后）</text></g><g fill="#65818e" font-size="15"><text x="202" y="653">Issue · PR diff · Actions 日志</text><text x="527" y="653">语义候选 / 文件读取 / 词法检索</text><text x="852" y="653">业务事实 · 任务 · 会话 · 审计</text><text x="1207" y="653">评论 · Issue · 标签等支持的动作</text></g></g>
+    <rect x="48" y="710" width="1344" height="73" rx="12" fill="#fff" stroke="#d8e3e7"/>
+    <text x="720" y="742" text-anchor="middle" fill="#183d47" font-size="20" font-weight="600">模型服务：OpenAI 兼容 LLM · Qwen Embedding · Rerank · RAGAS Judge</text><text x="720" y="768" text-anchor="middle" fill="#67818a" font-size="15">模型与向量服务需要单独配置；本地截图环境使用 SQLite 与无模型演示模式</text>
+  </g>
+</svg>

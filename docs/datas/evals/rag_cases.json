@@ -1,0 +1,125 @@
+{
+  "schema_version": 2,
+  "name": "devflow-real-project-rag-baseline",
+  "label": "CodePilot 固定工程基线",
+  "description": "人工维护的策略与故障场景基线；上传配套参考文档后运行真实 ChatAgent 和 Judge。",
+  "recommended": true,
+  "cases": [
+    {
+      "id": "draft-policy",
+      "question": "根据 codepilot_baseline.md，Agent 的 GitHub 写操作如何执行？",
+      "reference": "先生成待确认草稿，经有权限的用户人工确认后执行。",
+      "must_include": [
+        "草稿",
+        "确认"
+      ],
+      "source_file": "codepilot_baseline.md",
+      "source_type": "knowledge_file"
+    },
+    {
+      "id": "rag-boundary",
+      "question": "根据基线资料，当前源码应该通过什么方式检索？",
+      "reference": "当前源码以工作区 checkout 为准，使用 workspace.search_code 和 workspace.read_file。",
+      "must_include": [
+        "workspace.search_code",
+        "workspace.read_file"
+      ],
+      "source_file": "codepilot_baseline.md",
+      "source_type": "knowledge_file"
+    },
+    {
+      "id": "rag-sources",
+      "question": "基线资料允许哪些资料进入 RAG？",
+      "reference": "Issue 描述、PR 说明、Review 评论、CI 失败日志、项目文档、上传知识和批准的长期记忆。",
+      "must_include": [
+        "Issue",
+        "PR",
+        "CI"
+      ],
+      "source_file": "codepilot_baseline.md",
+      "source_type": "knowledge_file"
+    },
+    {
+      "id": "production-identity",
+      "question": "生产模式可以使用默认演示用户吗？",
+      "reference": "不可以。生产模式必须关闭 DEMO_MODE，并使用个人访问令牌识别用户。",
+      "must_include": [
+        "DEMO_MODE",
+        "令牌"
+      ],
+      "source_file": "codepilot_baseline.md",
+      "source_type": "knowledge_file"
+    },
+    {
+      "id": "uncertain-write",
+      "question": "GitHub 写入超时，草稿状态 unknown 时应该怎么办？",
+      "reference": "先到 GitHub 核对操作是否已经成功，不能自动重试，以免重复创建。",
+      "must_include": [
+        "GitHub",
+        "核对"
+      ],
+      "source_file": "codepilot_baseline.md",
+      "source_type": "knowledge_file"
+    },
+    {
+      "id": "sync-failure",
+      "question": "PR 文件同步网络失败时，本地旧数据怎么处理？",
+      "reference": "保留已有 PR 文件与评论，标记部分同步失败。",
+      "must_include": [
+        "保留",
+        "失败"
+      ],
+      "source_file": "codepilot_baseline.md",
+      "source_type": "knowledge_file"
+    },
+    {
+      "id": "migration",
+      "question": "基线资料要求如何升级数据库？",
+      "reference": "先备份数据库，在 backend 执行 python -m alembic upgrade head，再启动应用。",
+      "must_include": [
+        "alembic upgrade head",
+        "备份"
+      ],
+      "source_file": "codepilot_baseline.md",
+      "source_type": "knowledge_file"
+    },
+    {
+      "id": "no-sla",
+      "question": "基线资料给出的生产 SLA 百分比是多少？",
+      "reference": "资料未提供生产 SLA 百分比，无法据此确定。",
+      "kind": "unanswerable",
+      "must_not_include": [
+        "99.99%",
+        "99.9%"
+      ],
+      "must_include": [
+        "未提供"
+      ],
+      "source_file": "codepilot_baseline.md",
+      "source_type": "knowledge_file"
+    },
+    {
+      "id": "stale-status",
+      "question": "可以只靠旧 PR 文档判断 PR 现在是否已合并吗？",
+      "reference": "不可以，必须查询当前 GitHub 或同步的结构化状态；文档只作为候选证据。",
+      "must_include": [
+        "状态"
+      ],
+      "source_file": "codepilot_baseline.md",
+      "source_type": "knowledge_file"
+    },
+    {
+      "id": "explicit-tool",
+      "question": "请显式调用 rag.search_similar_documents，查询 codepilot_baseline.md 中的失败同步保留策略并回答。",
+      "reference": "同步失败时保留已有 PR 文件和评论，返回部分失败。",
+      "required_tools": [
+        "rag.search_similar_documents"
+      ],
+      "must_include": [
+        "保留"
+      ],
+      "source_file": "codepilot_baseline.md",
+      "source_type": "knowledge_file"
+    }
+  ]
+}

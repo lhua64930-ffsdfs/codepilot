@@ -1,3 +1,4 @@
+from app.services.jobs import schedule_job
 import asyncio
 import hashlib
 import json
@@ -129,9 +130,9 @@ async def run_rag_eval(
     )
     eval_run = EvalRun(name=payload.name or "rag_eval", result_json=result)
     db.add(eval_run)
-    db.commit()
+    db.flush()
     db.refresh(eval_run)
-    background_tasks.add_task(
+    schedule_job(db, background_tasks,
         _execute_rag_eval_job,
         str(eval_run.id),
         str(payload.repo_id),
@@ -283,9 +284,9 @@ async def rescore_eval(
     )
     target = EvalRun(name=f"rescore-{source.name}", result_json=queued)
     db.add(target)
-    db.commit()
+    db.flush()
     db.refresh(target)
-    background_tasks.add_task(
+    schedule_job(db, background_tasks,
         _execute_rescore_job,
         str(target.id),
         str(source.id),

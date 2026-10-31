@@ -1,3 +1,4 @@
+from app.services.jobs import schedule_job
 import os
 import re
 import subprocess
@@ -236,9 +237,9 @@ async def connect_repo(payload: RepoConnectRequest, background_tasks: Background
                 limit=payload.initial_sync_limit,
             ),
         )
-        background_tasks.add_task(sync_repository_code_analysis_by_id, repo.id)
+        schedule_job(db, background_tasks, sync_repository_code_analysis_by_id, repo.id)
     elif fallback_message:
-        background_tasks.add_task(sync_repository_code_analysis_by_id, repo.id)
+        schedule_job(db, background_tasks, sync_repository_code_analysis_by_id, repo.id)
     return RepoConnectResponse(
         repo_id=repo.id,
         full_name=repo.full_name,
@@ -284,7 +285,7 @@ async def sync_repo(
     if repo is None:
         raise HTTPException(status_code=404, detail="未找到仓库")
     result = await sync_repository(db, repo, payload)
-    background_tasks.add_task(sync_repository_code_analysis_by_id, repo.id)
+    schedule_job(db, background_tasks, sync_repository_code_analysis_by_id, repo.id)
     return result
 
 
@@ -455,7 +456,8 @@ async def sync_status(repo_id: UUID, db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=404, detail="未找到仓库")
     return {
         "repo_id": str(repo.id),
-        "status": "completed" if repo.last_sync_at else "not_started",
+        "status": repo.sync_status,
+        "errors": repo.sync_errors or [],
         "last_sync_at": repo.last_sync_at,
-        "message": "最近一次同步已成功完成。" if repo.last_sync_at else "仓库还没有同步过。",
+        "message": "最近一次同步已成功完成。" if repo.sync_status == "completed" else "同步未完整完成，请查看 errors；已有数据会保留。",
     }

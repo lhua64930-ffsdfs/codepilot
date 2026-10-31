@@ -1,3 +1,4 @@
+from app.services.jobs import schedule_job
 import hashlib
 import hmac
 
@@ -15,6 +16,8 @@ router = APIRouter()
 
 def verify_signature(body: bytes, signature: str | None) -> None:
     if not settings.github_webhook_secret:
+        if settings.app_env.lower() == "production" or not settings.demo_mode:
+            raise HTTPException(status_code=503, detail="GitHub webhook 签名未配置")
         return
     if not signature or not signature.startswith("sha256="):
         raise HTTPException(status_code=401, detail="缺少 GitHub webhook 签名")
@@ -52,7 +55,8 @@ async def github_webhook(
         return {"accepted": False, "reason": f"{full_name} is not connected"}
 
     if x_github_event in {"issues", "pull_request", "workflow_run", "push", "check_suite", "check_run"}:
-        background_tasks.add_task(sync_repository_by_id, repo.id, RepoSyncRequest(limit=settings.auto_sync_limit))
+        with SessionLocal() as db:
+            schedule_job(db, background_tasks, sync_repository_by_id, repo.id, RepoSyncRequest(limit=settings.auto_sync_limit))
         return {"accepted": True, "event": x_github_event, "repo_id": str(repo.id), "action": "sync_scheduled"}
 
     return {"accepted": True, "event": x_github_event, "repo_id": str(repo.id), "action": "ignored"}

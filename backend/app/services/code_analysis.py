@@ -398,6 +398,6 @@ async def sync_repository_code_analysis_by_id(repo_id: uuid.UUID) -> int | None:
             return await sync_repository_code_analysis(db, repo)
         except Exception as exc:
             logger.warning("Failed to sync repository code analysis for %s: %s", repo_id, exc)
-            return None
+            raise
     finally:
         db.close()

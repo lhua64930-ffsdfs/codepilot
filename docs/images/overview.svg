@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="470" viewBox="0 0 1440 470" role="img" aria-labelledby="title desc">
+  <title id="title">CodePilot — AI 研发协作平台</title>
+  <desc id="desc">连接 Issue、PR、CI 和项目知识，通过多智能体分析、证据检索与人工审批辅助研发决策。</desc>
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#092f39"/><stop offset="1" stop-color="#0c5b59"/></linearGradient></defs>
+  <rect width="1440" height="470" rx="24" fill="url(#bg)"/>
+  <g font-family="Segoe UI,Microsoft YaHei,Arial,sans-serif">
+    <text x="64" y="64" fill="#9ce6d6" font-size="16" letter-spacing="3">ENGINEERING CONTEXT → ACTIONABLE DECISIONS</text>
+    <text x="60" y="150" fill="white" font-size="72" font-weight="700">CodePilot</text>
+    <text x="64" y="204" fill="#e3f7f2" font-size="31" font-weight="600">AI 研发协作平台</text>
+    <text x="64" y="257" fill="#b8d7d3" font-size="21">让研发问题有上下文，让分析结论有依据。</text>
+    <g font-size="17" fill="#dcf5ee">
+      <rect x="64" y="306" width="134" height="42" rx="21" fill="#ffffff" fill-opacity=".10"/><text x="89" y="334">多智能体</text>
+      <rect x="212" y="306" width="134" height="42" rx="21" fill="#ffffff" fill-opacity=".10"/><text x="238" y="334">知识检索</text>
+      <rect x="360" y="306" width="134" height="42" rx="21" fill="#ffffff" fill-opacity=".10"/><text x="386" y="334">人工审批</text>
+    </g>
+    <text x="64" y="419" fill="#92bdb8" font-size="16">Next.js / TypeScript · FastAPI / Python · PostgreSQL · Milvus</text>
+    <rect x="825" y="58" width="546" height="352" rx="18" fill="#ffffff" fill-opacity=".08" stroke="#ffffff" stroke-opacity=".2"/>
+    <g font-size="18" fill="#d8eeea"><text x="855" y="104">研发上下文</text><text x="855" y="154" fill="white" font-size="24" font-weight="600">Issue · PR · CI · 项目文档</text></g>
+    <path d="M1097 177v35" stroke="#8bd9c4" stroke-width="2"/><path d="m1091 205 6 7 6-7" fill="none" stroke="#8bd9c4" stroke-width="2"/>
+    <rect x="855" y="228" width="486" height="69" rx="12" fill="#d8f7ed"/>
+    <text x="1098" y="270" text-anchor="middle" fill="#155650" font-size="23" font-weight="600">Agent 编排 + 证据检索</text>
+    <path d="M1097 310v24" stroke="#8bd9c4" stroke-width="2"/><path d="m1091 327 6 7 6-7" fill="none" stroke="#8bd9c4" stroke-width="2"/>
+    <text x="1098" y="375" text-anchor="middle" fill="#f1fcf8" font-size="23">结构化建议 · 来源引用 · 操作草稿</text>
+  </g>
+</svg>

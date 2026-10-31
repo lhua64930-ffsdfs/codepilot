@@ -1,9 +1,9 @@
 import asyncio
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import inspect, text
+from contextlib import suppress
 
 from app.api.routes import (
     action_drafts,
@@ -26,8 +26,12 @@ from app.api.routes import (
     workspaces,
 )
 from app.core.config import settings
-from app.db.models import Base
-from app.db.session import engine
+from app.db.schema import verify_schema
+from app.services.authentication import authorize_api, current_user
+from app.services.jobs import job_worker_loop
+from app.db.session import engine, get_db
+from app.db.models import BackgroundJob
+from app.services.permissions import require_permission
 from app.services.scheduler import periodic_repo_sync_loop
 from app.services.rag.vector_store import MilvusUnavailableError
 
@@ -60,106 +64,55 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.include_router(repos.router, prefix="/api/repos", tags=["repos"])
-    app.include_router(conversations.router, prefix="/api/repos", tags=["conversations"])
-    app.include_router(workspaces.router, prefix="/api/workspaces", tags=["workspaces"])
-    app.include_router(issues.router, prefix="/api", tags=["issues"])
-    app.include_router(pull_requests.router, prefix="/api", tags=["pull_requests"])
-    app.include_router(ci.router, prefix="/api", tags=["ci"])
-    app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
-    app.include_router(feedback.router, prefix="/api/chat/feedback", tags=["chat_feedback"])
-    app.include_router(action_drafts.router, prefix="/api/action-drafts", tags=["action_drafts"])
-    app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
-    app.include_router(search.router, prefix="/api/search", tags=["search"])
-    app.include_router(skills.router, prefix="/api/skills", tags=["skills"])
-    app.include_router(knowledge.router, prefix="/api/repos", tags=["knowledge"])
-    app.include_router(project_index.router, prefix="/api/repos", tags=["project_index"])
-    app.include_router(rag.router, prefix="/api/rag", tags=["rag"])
-    app.include_router(code_graph.router, prefix="/api", tags=["code_graph"])
-    app.include_router(evaluations.router, prefix="/api/evals", tags=["evaluations"])
+    app.include_router(repos.router, prefix="/api/repos", tags=["repos"], dependencies=[Depends(authorize_api)])
+    app.include_router(conversations.router, prefix="/api/repos", tags=["conversations"], dependencies=[Depends(authorize_api)])
+    app.include_router(workspaces.router, prefix="/api/workspaces", tags=["workspaces"], dependencies=[Depends(authorize_api)])
+    app.include_router(issues.router, prefix="/api", tags=["issues"], dependencies=[Depends(authorize_api)])
+    app.include_router(pull_requests.router, prefix="/api", tags=["pull_requests"], dependencies=[Depends(authorize_api)])
+    app.include_router(ci.router, prefix="/api", tags=["ci"], dependencies=[Depends(authorize_api)])
+    app.include_router(chat.router, prefix="/api/chat", tags=["chat"], dependencies=[Depends(authorize_api)])
+    app.include_router(feedback.router, prefix="/api/chat/feedback", tags=["chat_feedback"], dependencies=[Depends(authorize_api)])
+    app.include_router(action_drafts.router, prefix="/api/action-drafts", tags=["action_drafts"], dependencies=[Depends(authorize_api)])
+    app.include_router(reports.router, prefix="/api/reports", tags=["reports"], dependencies=[Depends(authorize_api)])
+    app.include_router(search.router, prefix="/api/search", tags=["search"], dependencies=[Depends(authorize_api)])
+    app.include_router(skills.router, prefix="/api/skills", tags=["skills"], dependencies=[Depends(authorize_api)])
+    app.include_router(knowledge.router, prefix="/api/repos", tags=["knowledge"], dependencies=[Depends(authorize_api)])
+    app.include_router(project_index.router, prefix="/api/repos", tags=["project_index"], dependencies=[Depends(authorize_api)])
+    app.include_router(rag.router, prefix="/api/rag", tags=["rag"], dependencies=[Depends(authorize_api)])
+    app.include_router(code_graph.router, prefix="/api", tags=["code_graph"], dependencies=[Depends(authorize_api)])
+    app.include_router(evaluations.router, prefix="/api/evals", tags=["evaluations"], dependencies=[Depends(authorize_api)])
     app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
+    @app.get("/api/auth/me")
+    async def auth_identity(user=Depends(current_user)):
+        return {"id": str(user.id), "name": user.name, "role": user.role}
+
+    @app.get("/api/jobs")
+    async def list_jobs(db=Depends(get_db), _user=Depends(require_permission("settings:manage"))):
+        rows = db.query(BackgroundJob).order_by(BackgroundJob.created_at.desc()).limit(100).all()
+        return [{"id": str(row.id), "kind": row.kind, "status": row.status, "attempts": row.attempts, "error": row.error} for row in rows]
+
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok", "app": settings.app_name}
 
     @app.on_event("startup")
-    async def create_demo_tables() -> None:
-        # 课程项目默认自动建表；生产风格流程会在后续加入 Alembic 迁移。
-        Base.metadata.create_all(bind=engine)
-        inspector = inspect(engine)
-        if "users" in inspector.get_table_names():
-            columns = {column["name"] for column in inspector.get_columns("users")}
-            if "role" not in columns:
-                with engine.begin() as connection:
-                    connection.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(80) DEFAULT 'owner'"))
-        if "repositories" in inspector.get_table_names():
-            columns = {column["name"] for column in inspector.get_columns("repositories")}
-            with engine.begin() as connection:
-                if "provider" not in columns:
-                    connection.execute(text("ALTER TABLE repositories ADD COLUMN provider VARCHAR(80) DEFAULT 'github'"))
-                if "api_base_url" not in columns:
-                    connection.execute(text("ALTER TABLE repositories ADD COLUMN api_base_url TEXT"))
-                if "clone_url" not in columns:
-                    connection.execute(text("ALTER TABLE repositories ADD COLUMN clone_url TEXT"))
-                if "local_path" not in columns:
-                    connection.execute(text("ALTER TABLE repositories ADD COLUMN local_path TEXT"))
-                if "checkout_mode" not in columns:
-                    connection.execute(text("ALTER TABLE repositories ADD COLUMN checkout_mode VARCHAR(80) DEFAULT 'managed'"))
-                if "github_token_encrypted" not in columns:
-                    connection.execute(text("ALTER TABLE repositories ADD COLUMN github_token_encrypted TEXT"))
-        if "workflow_runs" in inspector.get_table_names():
-            columns = {column["name"] for column in inspector.get_columns("workflow_runs")}
-            if "jobs" not in columns:
-                with engine.begin() as connection:
-                    connection.execute(text("ALTER TABLE workflow_runs ADD COLUMN jobs JSON"))
-        for table_name in ["code_symbols", "code_relations"]:
-            if table_name in inspector.get_table_names():
-                columns = {column["name"] for column in inspector.get_columns(table_name)}
-                with engine.begin() as connection:
-                    if "pr_id" not in columns:
-                        connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN pr_id UUID"))
-                    if "pr_number" not in columns:
-                        connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN pr_number INTEGER"))
-        for table_name in ["chat_messages", "chat_sessions", "agent_runs", "evidence_items"]:
-            if table_name in inspector.get_table_names():
-                columns = {column["name"] for column in inspector.get_columns(table_name)}
-                if "conversation_id" not in columns:
-                    with engine.begin() as connection:
-                        connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN conversation_id UUID"))
-        for table_name in ["thread_memories", "conversation_memories"]:
-            if table_name in inspector.get_table_names():
-                columns = {column["name"] for column in inspector.get_columns(table_name)}
-                for column_name in ["facts", "tasks", "user_preferences", "repo_context", "citations"]:
-                    if column_name not in columns:
-                        with engine.begin() as connection:
-                            connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} JSON"))
-        if "documents" in inspector.get_table_names():
-            document_columns = {column["name"] for column in inspector.get_columns("documents")}
-            if "embedding" in document_columns:
-                with engine.begin() as connection:
-                    connection.execute(text("ALTER TABLE documents DROP COLUMN embedding"))
-        from app.db.session import SessionLocal
-        from app.services.conversations import backfill_all_default_conversations
-        from app.services.code_analysis import purge_legacy_code_documents
-        from app.services.rag.vector_store import delete_milvus_documents, milvus_runtime_status
-
-        db = SessionLocal()
-        try:
-            backfill_all_default_conversations(db)
-            if purge_legacy_code_documents(db):
-                db.commit()
-        finally:
-            db.close()
-        app.state.rag_vector_status = milvus_runtime_status()
-        delete_milvus_documents(source_types=["code_file"], strict=False)
+    async def initialize_services() -> None:
+        if settings.app_env.lower() == "production":
+            if settings.demo_mode or settings.token_encryption_key == "change-me-in-local-dev" or not settings.github_webhook_secret:
+                raise RuntimeError("生产环境必须关闭 DEMO_MODE、设置独立的 TOKEN_ENCRYPTION_KEY 和 GITHUB_WEBHOOK_SECRET")
+        verify_schema(engine)
+        app.state.job_worker_task = asyncio.create_task(job_worker_loop())
         if settings.auto_sync_enabled:
             app.state.repo_sync_task = asyncio.create_task(periodic_repo_sync_loop())
 
     @app.on_event("shutdown")
     async def stop_background_tasks() -> None:
-        task = getattr(app.state, "repo_sync_task", None)
-        if task:
-            task.cancel()
+        for name in ("repo_sync_task", "job_worker_task"):
+            task = getattr(app.state, name, None)
+            if task:
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
 
     return app
 

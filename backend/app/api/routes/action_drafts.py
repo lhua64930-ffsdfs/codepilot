@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from uuid import UUID
+import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -145,9 +146,10 @@ async def cancel_action_draft(
     draft = db.get(ActionDraft, draft_id)
     if draft is None:
         raise HTTPException(status_code=404, detail="未找到安全草稿")
-    if draft.status != "pending_confirmation":
-        raise HTTPException(status_code=400, detail="只有待确认草稿可以取消")
-    draft.status = "cancelled"
+    claimed = db.query(ActionDraft).filter(ActionDraft.id == draft_id, ActionDraft.status == "pending_confirmation").update({"status": "cancelled"}, synchronize_session=False)
+    if claimed != 1:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="草稿状态已改变，无法取消")
     write_audit_log(db, user=user, repo_id=draft.repo_id, action="action_draft.cancel", target_type=draft.target_type, target_id=str(draft.id))
     db.commit()
     db.refresh(draft)
@@ -168,6 +170,16 @@ async def confirm_action_draft(
     repo = db.get(Repository, draft.repo_id)
     if repo is None:
         raise HTTPException(status_code=404, detail="未找到仓库")
+    # Commit the claim before any external side effect. A concurrent request must
+    # observe executing; a crash must never automatically replay a GitHub write.
+    claimed = db.query(ActionDraft).filter(ActionDraft.id == draft_id, ActionDraft.status == "pending_confirmation").update(
+        {"status": "executing", "confirmed_by": user.id, "error_message": None}, synchronize_session=False,
+    )
+    if claimed != 1:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="草稿已由其他请求处理")
+    db.commit()
+    db.refresh(draft)
     try:
         result = await _execute_github_draft(db, draft, repo)
         draft.status = "executed"
@@ -186,7 +198,9 @@ async def confirm_action_draft(
             result_json=result if isinstance(result, dict) else {"result": result},
         )
     except Exception as exc:
-        draft.status = "failed"
+        # A timeout can happen after GitHub accepted a write. Do not offer an
+        # automatic retry for an outcome which needs external reconciliation.
+        draft.status = "unknown" if isinstance(exc, httpx.TransportError) else "failed"
         draft.confirmed_by = user.id
         draft.executed_at = datetime.now(timezone.utc)
         draft.error_message = str(exc)

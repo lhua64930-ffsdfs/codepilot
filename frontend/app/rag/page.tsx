@@ -1,5 +1,7 @@
 "use client";
 
+import { useStableCallback } from "@/lib/use-stable-callback";
+
 import {
   BookOpen,
   Database,
@@ -124,12 +126,12 @@ export default function RAGPage() {
   const currentRepo = useMemo(() => repos.find((repo) => repo.id === repoId) ?? null, [repos, repoId]);
   const availableSourceTypes = useMemo(() => Object.keys(status?.source_types ?? {}).sort(), [status]);
 
-  async function loadRepos(preferredId?: string) {
+  const loadRepos = useStableCallback(async function loadRepos(preferredId?: string) {
     const items = await apiGet<Repository[]>("/api/rag/repositories");
     setRepos(items);
     const nextId = preferredId && items.some((item) => item.id === preferredId) ? preferredId : repoId && items.some((item) => item.id === repoId) ? repoId : items[0]?.id ?? "";
     setRepoId(nextId);
-  }
+  });
 
   async function loadKnowledge(id: string) {
     const [nextKnowledge, nextStatus] = await Promise.all([
@@ -142,7 +144,7 @@ export default function RAGPage() {
 
   useEffect(() => {
     loadRepos().catch((loadError) => setError(errorMessage(loadError)));
-  }, []);
+  }, [loadRepos]);
 
   useEffect(() => {
     if (!repoId) {

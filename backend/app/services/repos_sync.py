@@ -12,6 +12,7 @@ from app.schemas.repos import RepoSyncRequest, RepoSyncResponse
 from app.services.github.actions import get_workflow_run_logs, list_workflow_run_jobs, list_workflow_runs
 from app.services.github.issues import list_issues
 from app.services.github.pull_requests import list_pull_request_files, list_pull_request_review_comments, list_pull_requests
+from app.services.repo_lock import repository_sync_lock
 
 
 def parse_github_datetime(value: str | None) -> datetime | None:
@@ -25,10 +26,23 @@ def login_of(user: dict | None) -> str | None:
 
 
 async def sync_repository(db: Session, repo: Repository, payload: RepoSyncRequest) -> RepoSyncResponse:
+    async with repository_sync_lock(db, repo.id):
+        try:
+            return await _sync_repository(db, repo, payload)
+        except Exception as exc:
+            db.rollback()
+            repo.sync_status = "failed"
+            repo.sync_errors = [type(exc).__name__]
+            db.commit()
+            raise
+
+
+async def _sync_repository(db: Session, repo: Repository, payload: RepoSyncRequest) -> RepoSyncResponse:
     if repo.provider not in {"github", "github_compatible"}:
         raise HTTPException(status_code=400, detail=f"{repo.provider} sync is not implemented yet")
 
     synced = {"issues": 0, "pull_requests": 0, "workflow_runs": 0}
+    errors: list[str] = []
     token = decrypt_token(repo.github_token_encrypted, settings.token_encryption_key) if repo.github_token_encrypted else None
     base_url = repo.api_base_url
 
@@ -76,12 +90,14 @@ async def sync_repository(db: Session, repo: Repository, payload: RepoSyncReques
             pr.created_at = parse_github_datetime(item.get("created_at"))
             pr.updated_at = parse_github_datetime(item.get("updated_at"))
 
-            db.query(PRFile).filter(PRFile.pr_id == pr.id).delete()
             try:
                 files = await list_pull_request_files(repo.owner, repo.name, pr.number, token=token, base_url=base_url)
-            except httpx.HTTPStatusError:
-                files = []
-            for file_item in files:
+            except httpx.HTTPError as exc:
+                files = None
+                errors.append(f"PR #{pr.number} files: {type(exc).__name__}")
+            if files is not None:
+                db.query(PRFile).filter(PRFile.pr_id == pr.id).delete()
+            for file_item in files or []:
                 db.add(
                     PRFile(
                         pr_id=pr.id,
@@ -92,12 +108,14 @@ async def sync_repository(db: Session, repo: Repository, payload: RepoSyncReques
                         patch=file_item.get("patch"),
                     )
                 )
-            db.query(PRReviewComment).filter(PRReviewComment.pr_id == pr.id).delete()
             try:
                 review_comments = await list_pull_request_review_comments(repo.owner, repo.name, pr.number, token=token, base_url=base_url)
-            except httpx.HTTPStatusError:
-                review_comments = []
-            for comment_item in review_comments:
+            except httpx.HTTPError as exc:
+                review_comments = None
+                errors.append(f"PR #{pr.number} review comments: {type(exc).__name__}")
+            if review_comments is not None:
+                db.query(PRReviewComment).filter(PRReviewComment.pr_id == pr.id).delete()
+            for comment_item in review_comments or []:
                 db.add(
                     PRReviewComment(
                         pr_id=pr.id,
@@ -115,8 +133,9 @@ async def sync_repository(db: Session, repo: Repository, payload: RepoSyncReques
     if payload.sync_workflow_runs:
         try:
             remote_runs = await list_workflow_runs(repo.owner, repo.name, token=token, limit=payload.limit, base_url=base_url)
-        except httpx.HTTPStatusError:
+        except httpx.HTTPError as exc:
             remote_runs = []
+            errors.append(f"workflow runs: {type(exc).__name__}")
         for item in remote_runs:
             run = db.query(WorkflowRun).filter(WorkflowRun.repo_id == repo.id, WorkflowRun.github_run_id == item.get("id")).one_or_none()
             if run is None:
@@ -152,19 +171,23 @@ async def sync_repository(db: Session, repo: Repository, payload: RepoSyncReques
                         }
                         for job in jobs
                     ]
-                except httpx.HTTPStatusError:
+                except httpx.HTTPError as exc:
                     run.jobs = run.jobs or []
+                    errors.append(f"workflow {run.github_run_id} jobs: {type(exc).__name__}")
             if run.conclusion == "failure" and run.github_run_id:
                 try:
                     run.logs_text = await get_workflow_run_logs(repo.owner, repo.name, run.github_run_id, token=token, base_url=base_url)
-                except httpx.HTTPStatusError:
-                    run.logs_text = run.logs_text
+                except httpx.HTTPError as exc:
+                    errors.append(f"workflow {run.github_run_id} logs: {type(exc).__name__}")
             synced["workflow_runs"] += 1
 
-    repo.last_sync_at = datetime.now(timezone.utc)
+    if not errors:
+        repo.last_sync_at = datetime.now(timezone.utc)
+    repo.sync_status = "partial" if errors else "completed"
+    repo.sync_errors = errors
     db.flush()
     db.commit()
-    return RepoSyncResponse(repo_id=repo.id, status="completed", synced=synced)
+    return RepoSyncResponse(repo_id=repo.id, status="partial" if errors else "completed", synced=synced, errors=errors)
 
 
 async def sync_repository_by_id(repo_id: UUID, payload: RepoSyncRequest) -> RepoSyncResponse | None:

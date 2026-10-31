@@ -1,3 +1,4 @@
+from app.services.jobs import schedule_job
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -42,7 +43,7 @@ async def start_memory_index_scan(
 ) -> ProjectIndexScanResponse:
     repo = _repo_or_404(db, repo_id)
     mark_project_index_building(db, repo)
-    background_tasks.add_task(scan_project_index_by_id, repo.id)
+    schedule_job(db, background_tasks, scan_project_index_by_id, repo.id)
     return ProjectIndexScanResponse(repo_id=repo.id, started=True, status="building")
 
 

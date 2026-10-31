@@ -467,6 +467,7 @@ async def test_ragas_api_persists_summary_metrics(monkeypatch) -> None:
 
     monkeypatch.setattr(evaluation_routes, "run_rag_quality_eval", fake_run)
     monkeypatch.setattr(evaluation_routes, "SessionLocal", lambda: db)
+    monkeypatch.setattr("app.services.jobs.SessionLocal", sessionmaker(bind=engine))
     background_tasks = BackgroundTasks()
     response = await evaluation_routes.run_rag_eval(
         EvalRunRequest(name="api-ragas", repo_id=repo.id, run_judge=True),

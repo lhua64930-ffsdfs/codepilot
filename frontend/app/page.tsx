@@ -1,5 +1,7 @@
 "use client";
 
+import { useStableCallback } from "@/lib/use-stable-callback";
+
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -37,541 +39,63 @@ import { apiDelete, apiGet, apiPost, apiPostStream, apiUpload } from "@/lib/api"
 import type { Repository } from "@/lib/types";
 import { FeedbackControls, type ChatFeedbackRecord } from "@/components/feedback-controls";
 
-type Issue = {
-  id: string;
-  number: number;
-  title: string;
-  state: string;
-  labels?: string[];
-  body?: string | null;
-  author?: string | null;
-  assignees?: string[];
-  created_at?: string | null;
-  updated_at?: string | null;
-};
+import type {
+  Issue,
+  PRFile,
+  PullRequest,
+  WorkflowRun,
+  WorkflowPlanClaim,
+  WorkflowPlanTask,
+  WorkflowPlan,
+  ChatResponse,
+  ChatPlanResponse,
+  ChatStreamFinal,
+  ChatStreamDelta,
+  ChatStreamToolUse,
+  ChatStreamToolResult,
+  PromptRecommendationsResponse,
+  DuplicateCandidate,
+  IssueEvidence,
+  IssueDrafts,
+  IssueAnalysisResult,
+  IssueAnalysisResponse,
+  PRAnalysisResult,
+  PRAnalysisResponse,
+  CIAnalysisResult,
+  CIAnalysisResponse,
+  IssueAnalysisTraceItem,
+  ChatHistoryMessage,
+  RepoConnectResult,
+  ProjectConversation,
+  ConversationDeleteResult,
+  ChatMessage,
+  ToolCallTrace,
+  ChatTraceItem,
+  SkillManifest,
+  SkillResponse,
+  McpRuntime,
+  WorkspaceSelection,
+  WorkspaceItem,
+  TeamMember,
+  TeamMemberDraft,
+  MemoryNote,
+  MemoryNoteDraft,
+  KnowledgeItem,
+  ProjectIndexStatus,
+  ProjectIndexSummary,
+  ProjectIndexState,
+  RecallEvent,
+  MemoryStatus,
+  MemoryCandidate,
+  MemorySearchResult,
+  KnowledgeGraphNode,
+  KnowledgeGraphEdge,
+  KnowledgeGraphResponse,
+  AddProjectStatus,
+  AddProjectSource,
+  PromptSuggestionState
+} from "@/lib/workspace-types";
 
-type PRFile = {
-  id: string;
-  filename: string;
-  status: string;
-  additions: number;
-  deletions: number;
-  patch?: string | null;
-};
-
-type PullRequest = {
-  id: string;
-  number: number;
-  title: string;
-  state: string;
-  body?: string | null;
-  author?: string | null;
-  base_branch?: string | null;
-  head_branch?: string | null;
-  merged_at?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  files?: PRFile[];
-};
-
-type WorkflowRun = {
-  id: string;
-  name: string;
-  status: string;
-  conclusion?: string | null;
-  html_url?: string | null;
-  logs_text?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-};
-
-type WorkflowPlanClaim = {
-  target_type: string;
-  target_id?: string | null;
-  allowed_sources?: string[];
-  write_intent?: boolean;
-  reason?: string;
-};
-
-type WorkflowPlanTask = {
-  id: string;
-  agent_name: string;
-  task_type: string;
-  objective: string;
-  dependencies?: string[];
-  claim: WorkflowPlanClaim;
-  critical?: boolean;
-};
-
-type WorkflowPlan = {
-  workflow_id: string;
-  goal: string;
-  trigger_message: string;
-  acceptance_criteria?: string[];
-  tasks: WorkflowPlanTask[];
-  max_parallel_tasks?: number;
-  requires_human_confirmation?: boolean;
-  created_at?: string;
-};
-
-type ChatResponse = {
-  route: string;
-  tool_calls: ToolCallTrace[];
-  agent_events?: Array<Record<string, unknown>>;
-  answer: string;
-  citations: Array<Record<string, string>>;
-  compression_stats?: Record<string, unknown>;
-  progressive_compaction?: Record<string, unknown>;
-  model_usage?: Array<Record<string, unknown>>;
-  context_diagnostics?: Record<string, unknown>;
-};
-
-type ChatPlanResponse = {
-  route: string;
-  conversation_id: string;
-  answer: string;
-  plan: WorkflowPlan;
-  tool_calls: ToolCallTrace[];
-  agent_events?: Array<Record<string, unknown>>;
-};
-
-type ChatStreamFinal = ChatResponse & {
-  run_id: string;
-  message_id: string;
-};
-
-type ChatStreamDelta = {
-  content?: string;
-};
-
-type ChatStreamToolUse = {
-  id?: string;
-  tool_name?: string;
-  arguments?: Record<string, unknown>;
-  skill_name?: string;
-  skill_title?: string;
-  skill_version?: string;
-  skill_steps?: string[];
-  skill_activation_mode?: string;
-  skill_activation_reason?: string;
-  skill_instruction_digest?: string;
-};
-
-type ChatStreamToolResult = {
-  tool_use_id?: string;
-  tool_name?: string;
-  status?: string;
-  route?: string;
-  content?: unknown;
-  error?: string;
-  skill_name?: string;
-  skill_title?: string;
-  skill_version?: string;
-  skill_steps?: string[];
-  skill_activation_mode?: string;
-  skill_activation_reason?: string;
-  skill_instruction_digest?: string;
-};
-
-type PromptRecommendationsResponse = {
-  agent: string;
-  suggestions: string[];
-};
-
-type DuplicateCandidate = {
-  issue_id: string;
-  title: string;
-  score: number;
-};
-
-type IssueEvidence = {
-  source_type: string;
-  title: string;
-  snippet: string;
-  reference?: string | null;
-  confidence?: number | null;
-};
-
-type IssueDrafts = {
-  clarification_comment?: string | null;
-  task_breakdown?: string | null;
-};
-
-type IssueAnalysisResult = {
-  summary: string;
-  conclusion: "进入开发" | "等待澄清" | "关闭" | "拆分" | "合并到已有 Issue" | string;
-  conclusion_reason: string;
-  category: string;
-  priority: "P0" | "P1" | "P2" | "P3" | string;
-  complexity: "S" | "M" | "L" | "XL" | string;
-  suggested_owner: string;
-  owner_reason: string;
-  duplicate_candidates?: DuplicateCandidate[];
-  evidence?: IssueEvidence[];
-  checklist?: string[];
-  action_items?: string[];
-  drafts?: IssueDrafts;
-  confidence: number;
-};
-
-type IssueAnalysisResponse = {
-  analysis_id: string;
-  result: IssueAnalysisResult;
-};
-
-type PRAnalysisResult = {
-  summary: string;
-  plan?: string[];
-  executed_steps?: string[];
-  merge_recommendation: "建议合入" | "修改后合入" | "暂缓" | "拒绝" | string;
-  recommendation_reason?: string;
-  key_changes?: string[];
-  risk_points?: string[];
-  blocking_issues?: string[];
-  review_checklist?: string[];
-  test_suggestions?: string[];
-  files_need_attention?: string[];
-  review_comments?: string[];
-  confidence: number;
-};
-
-type PRAnalysisResponse = {
-  analysis_id: string;
-  result: PRAnalysisResult;
-};
-
-type CIAnalysisResult = {
-  failure_summary: string;
-  failure_type: "test" | "build" | "lint" | "dependency" | "permission" | "environment" | "unknown" | string;
-  plan?: string[];
-  executed_steps?: string[];
-  first_error?: string | null;
-  root_cause?: string;
-  possible_causes?: string[];
-  fix_steps?: string[];
-  debug_steps?: string[];
-  related_files?: string[];
-  is_merge_blocking: boolean;
-  blocking_reason?: string;
-  confidence: number;
-};
-
-type CIAnalysisResponse = {
-  analysis_id: string;
-  result: CIAnalysisResult;
-};
-
-type IssueAnalysisTraceItem = {
-  id: string;
-  kind: "step" | "tool" | "thinking" | "result" | "error" | string;
-  title: string;
-  content: string;
-  status?: "running" | "done" | "error" | string;
-};
-
-type ChatHistoryMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  route?: string | null;
-  tool_calls?: ToolCallTrace[];
-  agent_events?: Array<Record<string, unknown>>;
-  compression_stats?: Record<string, unknown>;
-  progressive_compaction?: Record<string, unknown>;
-  model_usage?: Array<Record<string, unknown>>;
-  context_diagnostics?: Record<string, unknown>;
-  created_at?: string | null;
-};
-
-type RepoConnectResult = {
-  repo_id: string;
-  full_name: string;
-  provider: string;
-  api_base_url?: string | null;
-  clone_url?: string | null;
-  local_path?: string | null;
-  checkout_mode?: string;
-  default_branch?: string | null;
-  connected: boolean;
-  demo_mode: boolean;
-  message: string;
-  sync_status?: string;
-  synced?: Record<string, number>;
-};
-
-type ProjectConversation = {
-  id: string;
-  repo_id: string;
-  title: string;
-  status: string;
-  message_count: number;
-  created_at?: string | null;
-  updated_at?: string | null;
-};
-
-type ConversationDeleteResult = {
-  deleted: string;
-  active_conversation_id: string;
-  conversations: ProjectConversation[];
-};
-
-type ChatMessage = {
-  id: string;
-  messageId?: string;
-  role: "user" | "assistant";
-  content: string;
-  route?: string;
-  toolCalls?: ToolCallTrace[];
-  traceItems?: ChatTraceItem[];
-  traceCollapsed?: boolean;
-  responsePending?: boolean;
-  compressionStats?: Record<string, unknown>;
-  progressiveCompaction?: Record<string, unknown>;
-  modelUsage?: Array<Record<string, unknown>>;
-  contextDiagnostics?: Record<string, unknown>;
-  contextCollapsed?: boolean;
-  workflowPlan?: WorkflowPlan;
-  planSourceMessage?: string;
-  planStatus?: "ready" | "executing" | "done" | "error";
-  feedback?: ChatFeedbackRecord;
-};
-
-type ToolCallTrace = {
-  tool_name: string;
-  status: string;
-  error?: string;
-  tool_use_id?: string;
-  skill_name?: string;
-  skill_title?: string;
-  skill_version?: string;
-  skill_steps?: string[];
-  skill_activation_mode?: string;
-  skill_activation_reason?: string;
-  skill_instruction_digest?: string;
-};
-
-type ChatTraceItem = {
-  id: string;
-  kind: "thinking" | "tool" | "error" | string;
-  title: string;
-  content: string;
-  status?: "running" | "done" | "error" | string;
-  toolUseId?: string;
-  skillName?: string;
-  skillTitle?: string;
-  skillVersion?: string;
-  skillSteps?: string[];
-  skillActivationMode?: string;
-  skillActivationReason?: string;
-  skillInstructionDigest?: string;
-  evidenceCount?: number;
-};
-
-type SkillManifest = {
-  name: string;
-  title: string;
-  version: string;
-  description: string;
-  category: string;
-  entrypoint: string;
-  tools: string[];
-  input_modes: string[];
-  triggers: string[];
-  workflow_steps: string[];
-  output_contract: string;
-  safety_level: string;
-};
-
-type SkillResponse = {
-  manifest: SkillManifest;
-  path: string;
-  instructions?: string | null;
-};
-
-type McpRuntime = {
-  status: string;
-  server_name: string;
-  server_version: string;
-  protocol_version: string;
-  transport: string;
-  tools: Array<{
-    name: string;
-    description: string;
-    input_schema: {
-      required?: string[];
-      properties?: Record<string, unknown>;
-    };
-  }>;
-};
-
-type WorkspaceSelection =
-  | { type: "issue"; id: string }
-  | { type: "pr"; id: string }
-  | { type: "ci"; id: string };
-
-type WorkspaceItem = {
-  id: string;
-  title: string;
-  meta: string;
-  detail?: string | null;
-  badges?: string[];
-  selected: boolean;
-  onClick: () => void;
-};
-
-type TeamMember = {
-  id: string;
-  name: string;
-  role: string;
-  strengths: string;
-  techStack: string;
-};
-
-type TeamMemberDraft = Omit<TeamMember, "id">;
-
-type MemoryNote = {
-  id: string;
-  title: string;
-  content: string;
-};
-
-type MemoryNoteDraft = Omit<MemoryNote, "id">;
-
-type KnowledgeItem = {
-  id: string;
-  document_ids: string[];
-  source_type: "memory_note" | "knowledge_file" | "team_member" | "weekly_report" | string;
-  title: string;
-  content_preview: string;
-  metadata?: Record<string, unknown>;
-  chunk_count: number;
-  created_at?: string | null;
-};
-
-type ProjectIndexStatus = "missing" | "stale" | "building" | "ready" | "failed";
-
-type ProjectIndexSummary = {
-  projectName?: string;
-  rootPath?: string;
-  techStack?: string[];
-  dirStructure?: string[];
-  docsList?: Array<{ path: string; tier: string; source_type?: string }>;
-  tierCoverage?: Record<string, number>;
-  sourceTypeCoverage?: Record<string, number>;
-  docsIndexed?: number;
-  indexPolicy?: {
-    mode?: "auto" | "allowlist";
-    include?: string[];
-    exclude?: string[];
-    includeManifests?: boolean;
-    configPath?: string | null;
-  };
-  excludedFiles?: number;
-  excludedPaths?: string[];
-  discoveryTruncated?: boolean;
-};
-
-type ProjectIndexState = {
-  repo_id: string;
-  status: ProjectIndexStatus;
-  fingerprint: string;
-  docs_indexed: number;
-  docs_total: number;
-  error_message?: string | null;
-  summary_json?: ProjectIndexSummary | null;
-  snoozed_until?: string | null;
-  last_scan_at?: string | null;
-};
-
-type RecallEvent = {
-  id: string;
-  tool_name: string;
-  query: string;
-  scope: string;
-  mode: string;
-  status: string;
-  result_count: number;
-  results: Array<Record<string, unknown>>;
-  citations: Array<Record<string, unknown>>;
-  metadata?: Record<string, unknown>;
-  created_at?: string | null;
-};
-
-type MemoryStatus = {
-  repo_id: string;
-  index: Record<string, unknown>;
-  documents: Record<string, unknown>;
-  evidence: Record<string, unknown>;
-  recall: Record<string, unknown>;
-  candidates: Record<string, unknown>;
-  vector: Record<string, unknown>;
-};
-
-type MemoryCandidate = {
-  id: string;
-  kind: string;
-  title: string;
-  content: string;
-  status: string;
-  source: string;
-  metadata?: Record<string, unknown>;
-  created_at?: string | null;
-  reviewed_at?: string | null;
-};
-
-type MemorySearchResult = {
-  title: string;
-  source_type: string;
-  source_id: string;
-  snippet: string;
-  score?: number;
-  metadata?: Record<string, unknown>;
-  retrieval?: Record<string, unknown>;
-};
-
-type KnowledgeGraphNode = {
-  id: string;
-  type: string;
-  title: string;
-  subtitle?: string;
-  metadata?: Record<string, unknown>;
-  highlighted?: boolean;
-};
-
-type KnowledgeGraphEdge = {
-  id: string;
-  from_type: string;
-  from_id: string;
-  to_type: string;
-  to_id: string;
-  relation: string;
-  confidence: number;
-  source: string;
-  metadata?: Record<string, unknown>;
-};
-
-type KnowledgeGraphResponse = {
-  repo_id: string;
-  center_type?: string | null;
-  center_id?: string | null;
-  depth: number;
-  nodes: KnowledgeGraphNode[];
-  edges: KnowledgeGraphEdge[];
-  stats: Record<string, unknown>;
-};
-
-type AddProjectStatus = {
-  type: "success" | "error";
-  title: string;
-  detail?: string;
-};
-
-type AddProjectSource = "remote" | "local";
-
-type PromptSuggestionState = {
-  suggestions: string[];
-  exclude: string[];
-};
 const workspaceTabs = ["Issue", "PR", "CI", "团队", "记忆&知识库", "技能&MCP", "图谱"] as const;
 type WorkspaceTab = (typeof workspaceTabs)[number];
 
@@ -884,6 +408,7 @@ const prCategoryMeta = [
 ] as const;
 
 export default function DashboardPage() {
+  const [workspaceLoadError, setWorkspaceLoadError] = useState<string | null>(null);
   const [repos, setRepos] = useState<Repository[]>([]);
   const [selectedRepoId, setSelectedRepoId] = useState("");
   const [conversationMap, setConversationMap] = useState<Record<string, ProjectConversation[]>>({});
@@ -972,11 +497,11 @@ export default function DashboardPage() {
   const selectedPromptState = selectedRepo ? promptStateByRepo[selectedRepo.id] : undefined;
   const selectedProjectIndexState = selectedRepo ? projectIndexByRepo[selectedRepo.id] : undefined;
   const selectedKnowledgeGraph = selectedRepo ? knowledgeGraphByRepo[selectedRepo.id] : null;
-  const promptSuggestions = selectedPromptState?.suggestions ?? [];
+  const promptSuggestions = useMemo(() => selectedPromptState?.suggestions ?? [], [selectedPromptState?.suggestions]);
   const promptExclude = selectedPromptState?.exclude ?? [];
   const loadingPrompts = Boolean(selectedRepo?.id && loadingPromptRepoId === selectedRepo.id);
 
-  async function loadRepos() {
+  const loadRepos = useStableCallback(async function loadRepos() {
     const items = await apiGet<Repository[]>("/api/repos");
     setRepos(items);
     const pairs = await Promise.all(
@@ -990,26 +515,30 @@ export default function DashboardPage() {
     });
     setSelectedRepoId((current) => current || items[0]?.id || "");
     setSelectedConversationId((current) => current || (items[0] ? nextMap[items[0].id]?.[0]?.id ?? "" : ""));
-  }
+  });
 
-  async function loadRepoConversations(repoId: string) {
+  const loadRepoConversations = useStableCallback(async function loadRepoConversations(repoId: string) {
     const conversations = await apiGet<ProjectConversation[]>(`/api/repos/${repoId}/conversations`).catch(() => []);
     setConversationMap((items) => ({ ...items, [repoId]: conversations }));
     return conversations;
-  }
+  });
 
-  async function loadRepoData(repoId: string) {
+  const loadRepoData = useStableCallback(async function loadRepoData(repoId: string) {
+    setWorkspaceLoadError(null);
+    setIssues([]);
+    setPrs([]);
+    setRuns([]);
     const [issueItems, prItems, runItems] = await Promise.all([
-      apiGet<Issue[]>(`/api/repos/${repoId}/issues`).catch(() => []),
-      apiGet<PullRequest[]>(`/api/repos/${repoId}/pull-requests`).catch(() => []),
-      apiGet<WorkflowRun[]>(`/api/repos/${repoId}/workflow-runs`).catch(() => [])
+      apiGet<Issue[]>(`/api/repos/${repoId}/issues`),
+      apiGet<PullRequest[]>(`/api/repos/${repoId}/pull-requests`),
+      apiGet<WorkflowRun[]>(`/api/repos/${repoId}/workflow-runs`)
     ]);
     setIssues(issueItems);
     setPrs(prItems);
     setRuns(runItems);
-  }
+  });
 
-  async function loadSkillRuntime() {
+  const loadSkillRuntime = useStableCallback(async function loadSkillRuntime() {
     setSkillRuntimeLoading(true);
     setSkillRuntimeError(null);
     try {
@@ -1029,9 +558,9 @@ export default function DashboardPage() {
     } finally {
       setSkillRuntimeLoading(false);
     }
-  }
+  });
 
-  async function loadPromptSuggestions(repoId: string, exclude: string[] = []) {
+  const loadPromptSuggestions = useStableCallback(async function loadPromptSuggestions(repoId: string, exclude: string[] = []) {
     setLoadingPromptRepoId(repoId);
     try {
       const result = await apiPost<PromptRecommendationsResponse>("/api/chat/recommendations", {
@@ -1065,7 +594,7 @@ export default function DashboardPage() {
     } finally {
       setLoadingPromptRepoId((current) => (current === repoId ? null : current));
     }
-  }
+  });
 
   async function analyzeIssue(issue: Issue) {
     setAnalysisModalIssueId(issue.id);
@@ -1409,7 +938,7 @@ export default function DashboardPage() {
     }
   }
 
-  async function loadProjectKnowledge(repoId: string) {
+  const loadProjectKnowledge = useStableCallback(async function loadProjectKnowledge(repoId: string) {
     const [members, knowledge] = await Promise.all([
       apiGet<TeamMember[]>(`/api/repos/${repoId}/team-members`).catch(() => []),
       apiGet<KnowledgeItem[]>(`/api/repos/${repoId}/knowledge`).catch(() => [])
@@ -1425,17 +954,17 @@ export default function DashboardPage() {
           content: item.content_preview
       }))
     );
-  }
+  });
 
-  async function loadProjectIndexState(repoId: string) {
+  const loadProjectIndexState = useStableCallback(async function loadProjectIndexState(repoId: string) {
     const state = await apiGet<ProjectIndexState>(`/api/repos/${repoId}/memory-index/state`).catch(() => null);
     if (state) {
       setProjectIndexByRepo((items) => ({ ...items, [repoId]: state }));
     }
     return state;
-  }
+  });
 
-  async function loadKnowledgeGraph(repoId: string, center?: { type: string; id: string }) {
+  const loadKnowledgeGraph = useStableCallback(async function loadKnowledgeGraph(repoId: string, center?: { type: string; id: string }) {
     setGraphLoadingRepoId(repoId);
     setGraphError(null);
     try {
@@ -1456,7 +985,7 @@ export default function DashboardPage() {
     } finally {
       setGraphLoadingRepoId((current) => (current === repoId ? null : current));
     }
-  }
+  });
 
   async function rebuildSelectedKnowledgeGraph() {
     if (!selectedRepo) return;
@@ -1533,7 +1062,7 @@ export default function DashboardPage() {
     };
   }
 
-  async function loadChatHistory(repo: Repository, conversation: ProjectConversation) {
+  const loadChatHistory = useStableCallback(async function loadChatHistory(repo: Repository, conversation: ProjectConversation) {
     async function loadCompleteHistory() {
       const pageSize = 500;
       const history: ChatHistoryMessage[] = [];
@@ -1582,21 +1111,20 @@ export default function DashboardPage() {
           feedback: feedbackByMessage.get(item.id)
         }))
     );
-  }
+  });
 
   useEffect(() => {
-    loadRepos().catch(() => setRepos([]));
-  }, []);
+    loadRepos().catch((error) => setWorkspaceLoadError(getFriendlyError(error)));
+  }, [loadRepos]);
 
-  useEffect(() => {
-    if (workspaceTab === "技能&MCP" && !mcpRuntime && !skillRuntimeLoading) {
-      void loadSkillRuntime();
-    }
-  }, [workspaceTab]);
+  const refreshSkillTab = useStableCallback(() => {
+    if (workspaceTab === "技能&MCP" && !mcpRuntime && !skillRuntimeLoading) void loadSkillRuntime();
+  });
+  useEffect(() => { refreshSkillTab(); }, [workspaceTab, refreshSkillTab]);
 
-  useEffect(() => {
+  const refreshProjectPanels = useStableCallback(() => {
     if (selectedRepo?.id) {
-      loadRepoData(selectedRepo.id);
+      loadRepoData(selectedRepo.id).catch((error) => setWorkspaceLoadError(getFriendlyError(error)));
       loadProjectKnowledge(selectedRepo.id);
       loadProjectIndexState(selectedRepo.id);
       loadKnowledgeGraph(selectedRepo.id);
@@ -1611,7 +1139,8 @@ export default function DashboardPage() {
       setSelectedGraphNodeKey(null);
       setMessages([]);
     }
-  }, [selectedRepo?.id]);
+  });
+  useEffect(() => { refreshProjectPanels(); }, [selectedRepo?.id, refreshProjectPanels]);
 
   useEffect(() => {
     if (!loadingPrompts) {
@@ -1637,7 +1166,7 @@ export default function DashboardPage() {
     if (!conversations.some((item) => item.id === selectedConversationId)) {
       setSelectedConversationId(conversations[0].id);
     }
-  }, [selectedRepo?.id, conversationMap, selectedConversationId, isDraftConversation]);
+  }, [selectedRepo?.id, conversationMap, selectedConversationId, isDraftConversation, loadRepoConversations]);
 
   useEffect(() => {
     if (isDraftConversation) return;
@@ -1648,7 +1177,7 @@ export default function DashboardPage() {
     if (selectedRepo?.id && selectedConversation?.id) {
       loadChatHistory(selectedRepo, selectedConversation).catch(() => setMessages([welcomeMessage(selectedRepo, selectedConversation)]));
     }
-  }, [selectedRepo?.id, selectedConversation?.id, isDraftConversation]);
+  }, [selectedRepo, selectedConversation, isDraftConversation, loadChatHistory]);
 
   useEffect(() => {
     setWorkspaceQuery("");
@@ -1844,7 +1373,7 @@ export default function DashboardPage() {
     if (!selectedRepo) return;
     setSyncing(true);
     try {
-      await apiPost(`/api/repos/${selectedRepo.id}/sync`, {
+      const result = await apiPost<{ status: string; errors: string[] }>(`/api/repos/${selectedRepo.id}/sync`, {
         sync_issues: true,
         sync_pull_requests: true,
         sync_workflow_runs: true,
@@ -1864,6 +1393,11 @@ export default function DashboardPage() {
         return next;
       });
       await loadPromptSuggestions(selectedRepo.id);
+      if (result.status === "partial") {
+        setWorkspaceLoadError(`部分同步失败，已保留旧数据：${result.errors.join("；")}`);
+      }
+    } catch (error) {
+      setWorkspaceLoadError(getFriendlyError(error));
     } finally {
       setSyncing(false);
     }
@@ -2462,6 +1996,9 @@ export default function DashboardPage() {
       className="relative grid h-[calc(100vh-24px)] min-h-0 overflow-hidden rounded-lg border border-line bg-white/80 shadow-sm"
       style={{ gridTemplateColumns: `${isSidebarCollapsed ? "56px" : "300px"} minmax(0,1fr)`, transition: "grid-template-columns 260ms ease" }}
     >
+      {workspaceLoadError && <div role="alert" className="absolute left-4 right-4 top-2 z-50 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        加载失败：{workspaceLoadError} <button className="ml-2 underline" onClick={() => { void loadRepos().then(() => selectedRepo && loadRepoData(selectedRepo.id)).catch((error) => setWorkspaceLoadError(getFriendlyError(error))); }}>重试</button>
+      </div>}
       <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-r border-line bg-[#fbf7f2] transition-all duration-300">
         <div className={`border-b border-line ${isSidebarCollapsed ? "p-2" : "p-4"}`}>
           <div className={`flex items-center ${isSidebarCollapsed ? "flex-col gap-3" : "gap-3"}`}>
@@ -4840,7 +4377,7 @@ function MemoryHubWorkspace({
     (item) => item.source_type !== "memory_note" && item.source_type !== "team_member"
   );
 
-  async function loadRecallEvents() {
+  const loadRecallEvents = useStableCallback(async function loadRecallEvents() {
     if (!repoId) return;
     setLoadingPanel("recall");
     setError(null);
@@ -4851,9 +4388,9 @@ function MemoryHubWorkspace({
     } finally {
       setLoadingPanel((current) => (current === "recall" ? null : current));
     }
-  }
+  });
 
-  async function loadMemoryStatus() {
+  const loadMemoryStatus = useStableCallback(async function loadMemoryStatus() {
     if (!repoId) return;
     setLoadingPanel("status");
     setError(null);
@@ -4864,9 +4401,9 @@ function MemoryHubWorkspace({
     } finally {
       setLoadingPanel((current) => (current === "status" ? null : current));
     }
-  }
+  });
 
-  async function loadCandidates(status = "pending") {
+  const loadCandidates = useStableCallback(async function loadCandidates(status: string = "pending") {
     if (!repoId) return;
     setLoadingPanel("review");
     setError(null);
@@ -4877,7 +4414,7 @@ function MemoryHubWorkspace({
     } finally {
       setLoadingPanel((current) => (current === "review" ? null : current));
     }
-  }
+  });
 
   async function runMemorySearch() {
     if (!repoId || !searchQuery.trim()) return;
@@ -4930,7 +4467,7 @@ function MemoryHubWorkspace({
     loadRecallEvents();
     loadMemoryStatus();
     loadCandidates();
-  }, [repoId]);
+  }, [repoId, loadRecallEvents, loadMemoryStatus, loadCandidates]);
 
   const tabs = [
     { id: "recall", label: "召回记录" },
@@ -5394,8 +4931,8 @@ function KnowledgeGraphWorkspace({
   onFocusNode: (node: KnowledgeGraphNode) => void;
   onOpenNode: (node: KnowledgeGraphNode) => void;
 }) {
-  const allNodes = graph?.nodes ?? [];
-  const allEdges = graph?.edges ?? [];
+  const allNodes = useMemo(() => graph?.nodes ?? [], [graph?.nodes]);
+  const allEdges = useMemo(() => graph?.edges ?? [], [graph?.edges]);
   const nodeByKey = useMemo(() => new Map(allNodes.map((node) => [knowledgeGraphNodeKey(node), node])), [allNodes]);
   const nodeTypes = useMemo(() => [...new Set(allNodes.map((node) => node.type))], [allNodes]);
   const relations = useMemo(() => [...new Set(allEdges.map((edge) => edge.relation))], [allEdges]);

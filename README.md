@@ -1,138 +1,119 @@
-# CodePilot
+<div align="center">
 
-CodePilot 是一个面向 GitHub PR / Issue 研发协作的全栈 AI Agent 项目。系统会连接仓库数据，分析 Issue、PR diff、CI 日志、项目知识库和本地工作区代码，并返回结构化建议与安全的操作草稿。
+# CodePilot — AI 研发协作平台
 
-## 核心能力
+**连接 Issue、PR、CI 与项目知识，让研发分析有上下文、有依据、有执行边界。**
 
-- 连接并同步 GitHub 仓库中的 Issue、Pull Request、PR 文件、Review 评论、Workflow Run、Job 和日志。
-- Issue 分析：分类、优先级、复杂度、推荐负责人、重复候选和行动项。
-- PR 审查：摘要、关键变更、风险点、检查清单、测试建议和需要重点关注的文件。
-- CI 排障：失败类型、可能原因、排查步骤和相关上下文。
-- Agent 对话：`ChatAgent` 使用原生工具调用，串联工作区、记忆、RAG、Issue、PR、CI、周报和安全工具。
-- 多 Agent 工作流审查：`WorkflowOrchestrator` 构建 Planner -> 专用 Agent -> Observer -> Synthesis 的闭环，用于 PR 就绪度、阻塞项、优先级和跨领域工程决策。
-- Skill Runtime：按用户显式指定或触发条件选择 `SKILL.md`，只向当前任务加载完整指令与受限资源；显式 Skill 校验允许工具，多 Agent 中的专用 Agent 分别加载自己的 Skill，并把版本、激活原因、指令摘要和执行校验写入 trace。
-- 工作区代码工具：安全地列出文件、读取文件和搜索本地代码。
-- RAG 聚焦 Issue 描述、PR 说明与 Review 评论、失败 CI 日志、项目文档、上传知识和已批准的长期记忆；当前代码走工作区/词法检索，团队与实时状态走结构化查询。
-- 生成工程周报。
-- 基础 Eval 覆盖 Issue 分类、PR 覆盖度、RAG 命中率、工具 schema 就绪度和结构化输出校验。
+[项目介绍](docs/project_overview.md) · [5 分钟演示](docs/demo_guide.md) · [系统架构](docs/architecture/system_design.md) · [启动指南](docs/getting_started.md) · [RAG 与评测](docs/rag_and_evaluation.md)
 
-## 技术栈
+![CodePilot 项目概览](docs/images/overview.svg)
 
-- 后端：Python、FastAPI、Pydantic、SQLAlchemy、PostgreSQL、Milvus、httpx、LangChain。
-- Agent 编排：原生工具调用 + 专用分析 Agent。
-- 前端：Next.js、TypeScript、Tailwind CSS、React Query。
-- 基础设施：Docker Compose 与 `.env` 配置。
+</div>
 
-## 架构
+## 30 秒了解项目
 
-```mermaid
-flowchart TD
-    FE["Next.js 前端"] --> API["FastAPI 后端"]
-    API --> DB["PostgreSQL"]
-    API --> Milvus["Milvus 向量库"]
-    API --> GH["GitHub REST API"]
-    API --> LLM["OpenAI 兼容 LLM API"]
-    API --> Conv["对话 Agent"]
-    Conv --> Workflow["工作流编排器"]
-    Workflow --> Planner["规划 Agent"]
-    Workflow --> Observer["观察 Agent"]
-    Workflow --> Synthesis["综合 Agent"]
-    Conv --> Workspace["工作区工具"]
-    Conv --> Memory["记忆 / RAG 工具"]
-    Conv --> Issue["Issue 分析 Agent"]
-    Conv --> PR["PR 审查 Agent"]
-    Conv --> CI["CI 排障 Agent"]
-    Conv --> Report["周报 Agent"]
-    Conv --> Safety["安全 Agent"]
-    Conv --> Skills["Skill 注册中心"]
-```
+CodePilot 是一个面向软件研发团队的全栈 AI Agent 工程项目。它将 GitHub 的需求、代码变更、CI 日志和项目文档连接起来，辅助完成 **Issue 分诊、PR 审查、CI 排障、知识问答与工程周报**。
 
-## 快速开始
+用户可以直接提问，也可以查看专项分析面板。系统检索当前仓库的证据，调用对应工具或专项 Agent，输出结构化建议、来源引用和可审查的操作草稿；支持的 GitHub 写操作须经有权限的用户确认后执行。
 
-```bash
-cp .env.example .env
-docker compose up -d postgres etcd minio milvus
+| 你关心的问题 | 项目如何处理 |
+| --- | --- |
+| 新 Issue 应该优先处理吗？ | 分析类别、优先级、复杂度、负责人候选与下一步行动 |
+| 这个 PR 有什么风险？ | 结合 diff 与 Review 评论输出风险、审查清单和测试建议 |
+| CI 为什么失败？ | 从失败 job、关键日志和变更上下文生成排障步骤 |
+| 项目里的规则写在哪里？ | 检索项目文档与上传知识，回答中展示证据与引用 |
+| 建议能直接改 GitHub 吗？ | 先形成草稿，再由具备审批权限的人确认，记录执行审计 |
 
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+**当前验证快照（2026-10-31）：220 项后端测试通过，TypeScript 检查通过，前端 Lint 零警告，Next.js 生产构建成功。**这些是工程验证结果，不等同于线上业务收益或模型准确率。
 
-另开一个终端：
+## 项目界面
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+以下为**真实应用截图**，使用独立 SQLite 数据库与合成仓库 `showcase/codepilot-demo`。截图环境关闭真实 LLM 与 Milvus，展示业务界面、关键词证据检索和启发式分析；不表示真实仓库分析成绩或完整向量检索效果。
 
-默认地址：
+### 研发工作台：把项目、问题和对话放在同一个上下文里
 
-- 后端：http://localhost:8000
-- API 文档：http://localhost:8000/docs
-- 前端：http://localhost:3000
+![研发工作台：项目总览、Issue 列表和 Agent 对话](docs/images/workspace.jpg)
 
-## RAG 知识问答系统
+### CI 排障：从“运行失败”进入可检查的分析过程
 
-项目内置了与第 7.1 节流程一一对应的完整 RAG 系统：知识库创建向导、文档解析、段落感知切片、Embedding、向量/关键词混合检索、重排、召回测试、问答工作室、上下文组装、基于证据生成和编号引用。支持 TXT、Markdown、PDF、DOCX、JSON、CSV 与日志文件；重复文件会按 SHA-256 跳过。
+![CI 排查面板：排查计划、已执行步骤和阻塞判断](docs/images/ci-analysis.jpg)
 
-对话链路采用混合 RAG：`ContextAssembler` 会在调用 ChatAgent 前按原始问题检索并注入证据；进入推理循环后，模型仍可把 `rag.search_similar_documents` 当作工具，改写查询、连续补查不同资料，并根据多次工具结果交叉验证答案。
+界面展示排查计划、关键错误、失败类型和合并阻塞判断。此截图来自无模型启发式分析，置信度字段不代表真实模型评测准确率。
 
-项目不会把所有私域数据都向量化。只有需要跨来源语义召回、会反复使用的非结构化知识进入 RAG；源码与配置以当前 checkout 为准，优先通过 `workspace.search_code` 和 `workspace.read_file` 检索；Issue、PR、CI 的状态字段、团队成员和周报等结构化或派生数据直接查数据库/API。RAG 返回的是候选证据，涉及实时状态和当前代码时仍要回到权威数据源核验。
+<details>
+<summary><strong>展开查看：知识问答与人工审批</strong></summary>
 
-从旧版本升级后，请对每个知识库调用一次 `POST /api/rag/{repo_id}/reindex`。重建会按新边界清理历史向量和旧会话 Document；只部署代码不会主动删除已有索引。
+### 知识问答与引用
 
-如果只想先验证页面、结构化数据和无模型兜底回答，Windows 本地可以用下面的脚本启动 SQLite 演示环境：
+![RAG 工作室：检索证据、回答与来源](docs/images/rag-workspace.jpg)
+
+演示环境明确显示向量检索降级；当前画面验证关键词检索和引用展示。
+
+### 安全草稿与人工确认
+
+![安全草稿：审查内容、确认执行和取消入口](docs/images/action-drafts.jpg)
+
+截图中的草稿尚未执行，未向真实 GitHub 仓库发送评论。
+
+</details>
+
+## 技术亮点与实现依据
+
+| 技术设计 | 解决的问题 | 代码入口 |
+| --- | --- | --- |
+| 原生工具调用 + 多 Agent 工作流 | 单个问题可能同时涉及 PR、CI、项目知识，需要规划、核验与综合 | [ChatAgent](backend/app/services/agents/chat_agent.py)、[工作流编排](backend/app/services/agents/workflow_orchestrator.py) |
+| RAG 与当前代码、实时状态分流 | 避免用旧文档代替当前源码，或把向量候选当作实时事实 | [来源策略](backend/app/services/rag/source_policy.py)、[工作区工具](backend/app/services/workspace_tools.py) |
+| 上下文压缩、会话记忆与 Skill Runtime | 支持多轮分析，控制上下文输入，并约束任务可用工具 | [上下文管理](backend/app/services/context_compression.py)、[Skill 注册](backend/app/services/skills/registry.py) |
+| 个人令牌 + 角色权限 + 仓库范围过滤 | 区分用户，阻止普通成员读取其他仓库的数据 | [身份与隔离](backend/app/services/authentication.py) |
+| 草稿状态原子抢占 + 人工确认 | 防止并发点击重复执行；外部结果不明时停止自动重试 | [草稿执行](backend/app/api/routes/action_drafts.py) |
+| 持久化任务、有限重试与显式迁移 | 改善重启恢复、同步失败保留数据和数据库升级的可靠性 | [任务队列](backend/app/services/jobs.py)、[迁移](backend/alembic/versions/0001_reliability.py) |
+| 固定评测集 + RAGAS + 回归检查 | 区分“程序跑通”和“回答质量达标”，保留逐题证据与评分 | [固定案例](docs/datas/evals/rag_cases.json)、[评测实现](backend/app/services/evals/ragas_runner.py) |
+
+专项工作流采用 **Planner → 专项 Agent → Observer → Synthesis**：规划任务及依赖，执行就绪任务，检查冲突与证据缺失，最后综合输出决策备忘录。详细过程见 [Agent 工作流](docs/architecture/agent_workflow.md)。
+
+## 系统架构
+
+![CodePilot 系统架构](docs/images/architecture.svg)
+
+| 层次 | 主要技术 |
+| --- | --- |
+| 前端交互 | Next.js 15、React 19、TypeScript、Tailwind CSS、SSE 流式事件 |
+| 后端服务 | Python、FastAPI、Pydantic、SQLAlchemy、Alembic |
+| Agent 与模型 | LangChain / LangGraph、原生工具调用、OpenAI 兼容模型接口 |
+| 知识检索 | Milvus、Embedding、关键词/向量混合检索、重排、证据与引用 |
+| 数据与任务 | PostgreSQL、数据库持久化任务、SQLite 本地演示 |
+| 质量验证 | pytest、RAGAS、TypeScript、ESLint、GitHub Actions |
+
+## 本地运行
+
+首次安装与完整服务配置见 **[启动指南](docs/getting_started.md)**。它区分两种运行方式：
+
+- **界面演示**：SQLite、合成数据、无模型回退，可体验页面与基础分析流程。
+- **完整检索与模型分析**：配置 PostgreSQL、Milvus、Embedding、LLM；用实际证据验证模型回答。
+
+已有 Python 虚拟环境和前端依赖后，可在 Windows 项目根目录启动独立的文档演示环境：
 
 ```powershell
-.\scripts\start_rag.ps1
+.\scripts\start_docs_preview.ps1
 ```
 
-脚本会关闭 Milvus，使用 deterministic embedding 和启发式重排，并停用演示知识库的 `0.8` 分数阈值，避免只有关键词分支时全部候选都被过滤。因此它可以验证页面、上传解析、关系库存储、Hybrid 的关键词分支和引用展示，但向量检索状态会明确显示 `degraded`，不能用来证明完整 RAG 已经跑通。要验证向量召回、混合检索和重建索引，仍需先按“快速开始”启动 PostgreSQL、etcd、MinIO 和 Milvus。
+访问 `http://127.0.0.1:3019`。演示数据位于 `.data/docs-preview`，与现有业务库分开。截图复现与演示顺序见 [5 分钟演示指南](docs/demo_guide.md)。
 
-知识库默认选择 `Qwen/Qwen3-Embedding-0.6B` 与 `qwen3-rerank`。安装 `backend/requirements-local-embedding.txt` 后可运行本地 Qwen Embedding；配置 `DASHSCOPE_API_KEY`、`RERANK_BASE_URL` 后可切换百炼 `text-embedding-v4` 与 `qwen3-rerank`。默认 Embedding 依赖缺失时系统会明确报错，不会在生产配置下静默改用另一套向量空间；只有上面的本地演示脚本会显式选择 deterministic embedding。已经配置 `LLM_API_KEY` 时，可用 `.\scripts\start_rag.ps1 -UseConfiguredLLM` 启用模型生成。
+## 文档导航
 
-RAG API：
+| 文档 | 适合了解什么 |
+| --- | --- |
+| [项目介绍](docs/project_overview.md) | 项目背景、使用场景和可展示的工程能力 |
+| [5 分钟演示](docs/demo_guide.md) | 按场景演示项目，理解截图和真实运行边界 |
+| [启动指南](docs/getting_started.md) | 安装、演示模式、完整服务、常见问题 |
+| [系统设计](docs/architecture/system_design.md) | 服务关系、证据边界和关键取舍 |
+| [Agent 工作流](docs/architecture/agent_workflow.md) | 工具调用、任务依赖、观察与综合 |
+| [RAG 与评测](docs/rag_and_evaluation.md) | 文档处理、检索、固定基线与质量门槛 |
+| [数据模型](docs/architecture/database_schema.md) | 核心实体与存储职责 |
+| [安全设计](docs/architecture/security.md) | 身份、仓库隔离、草稿执行与配置边界 |
+| [API 导览](docs/api/openapi.md) | 核心 API 分组与 OpenAPI 使用 |
+| [可靠性升级](docs/architecture/reliability_upgrade.md) | 数据库迁移、令牌、后台任务与故障处理 |
 
-```text
-POST /api/rag/knowledge-bases
-GET  /api/rag/knowledge-bases
-GET  /api/rag/knowledge-bases/{repo_id}
-POST /api/rag/knowledge-bases/{repo_id}/documents
-POST /api/rag/knowledge-bases/{repo_id}/retrieval-tests
-GET  /api/rag/{repo_id}/status
-POST /api/rag/{repo_id}/search
-POST /api/rag/{repo_id}/ask
-POST /api/rag/{repo_id}/reindex
-```
+## 当前边界
 
-## ChatAgent RAGAS 评测
-
-启动主应用后打开 `http://127.0.0.1:3000/evals`，选择仓库、固定评测集和 Top-K，再点击“运行固定 RAGAS 评测”。评测会在隔离会话中真实运行生产 ChatAgent 和工具集，收集预检索与 Agent 二次检索证据，然后使用 Ragas 0.4 Collections API 计算 Context Precision、Context Recall、Faithfulness、Answer Relevancy 和 Agent Goal Accuracy。结果会保存评测集 Hash、阈值、逐题工具轨迹、检索证据、硬规则与失败诊断，便于对同一基线做回归。
-
-默认 Judge 复用 `LLM_API_KEY`、`LLM_BASE_URL` 和 `LLM_MODEL`；也可以通过 `.env` 中的 `RAGAS_JUDGE_API_KEY`、`RAGAS_JUDGE_BASE_URL`、`RAGAS_JUDGE_MODEL` 单独配置。主项目内置的正式基准位于 `docs/datas/evals/rag_cases.json`，启动时会检查用例引用的文档是否已进入当前仓库知识库：
-
-```http
-POST /api/evals/rag/run
-Content-Type: application/json
-
-{
-  "repo_id": "<repository-uuid>",
-  "run_judge": true,
-  "top_k": 5,
-  "suite_id": "devflow-real-project-rag-baseline"
-}
-```
-
-提交接口会立即返回 `queued` 状态和 `eval_id`，ChatAgent 与 RAGAS 在后台继续运行。通过 `GET /api/evals/{eval_id}` 轮询 `result.progress`；状态变为 `passed`、`failed`、`error` 或 `no_cases` 时结束。网页会自动轮询，刷新或离开页面不会中断已经提交的任务。
-
-整体通过要求硬规则全部满足，并且五项语义指标都达到 `.env` 中对应的 `RAGAS_*_MIN` 门槛。页面把“执行状态”和“质量状态”分开显示：低分是质量失败；Judge 调用失败或指标缺失是评测不完整，不能伪装成质量结论。
-
-评测失败后可以直接在同一页面继续处理：
-
-- 展开 Case 查看实际回答、参考答案、检索来源、工具轨迹和可执行诊断；
-- 对 Judge 超时或缺失指标点击“仅重试异常评分”，复用已经保存的回答和证据，不重新运行 ChatAgent；
-- 选择两个相同评测集 Hash、Ragas/Judge 配置和 Top-K 的结果做回归对比；
-- 生成 `create_issue` 类型的 ActionDraft，把失败 Case、证据和建议带入人工确认流程，不会直接写入 GitHub。
+这是可运行的工程实践项目；尚未提供真实用户规模、线上 SLA、吞吐量或生产业务收益数据。GitLab/Gitee 适配仍是预留方向。真实模型的 RAGAS 分数、PostgreSQL 多实例压力与故障恢复仍需在目标部署环境单独验证。

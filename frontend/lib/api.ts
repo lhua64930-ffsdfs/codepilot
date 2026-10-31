@@ -2,8 +2,13 @@
 // 若该地址被其它容器占用会返回 404（路由不存在）。
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
+function authorizationHeaders(): Record<string, string> {
+  const token = typeof window === "undefined" ? null : sessionStorage.getItem("codepilot-access-token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store" });
+  const response = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store", headers: authorizationHeaders() });
   if (!response.ok) await throwApiError(response);
   return response.json();
 }
@@ -11,7 +16,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authorizationHeaders() },
     body: JSON.stringify(body)
   });
   if (!response.ok) await throwApiError(response);
@@ -21,7 +26,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authorizationHeaders() },
     body: JSON.stringify(body)
   });
   if (!response.ok) await throwApiError(response);
@@ -31,6 +36,7 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
 export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
+    headers: authorizationHeaders(),
     body
   });
   if (!response.ok) await throwApiError(response);
@@ -45,7 +51,7 @@ export async function apiPostStream(
 ): Promise<void> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authorizationHeaders() },
     body: JSON.stringify(body),
     signal: options.signal
   });
@@ -75,7 +81,7 @@ export async function apiPostStream(
 }
 
 export async function apiDelete<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, { method: "DELETE" });
+  const response = await fetch(`${API_BASE_URL}${path}`, { method: "DELETE", headers: authorizationHeaders() });
   if (!response.ok) await throwApiError(response);
   return response.json();
 }

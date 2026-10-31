@@ -1,5 +1,7 @@
 "use client";
 
+import { useStableCallback } from "@/lib/use-stable-callback";
+
 import { useEffect, useMemo, useState } from "react";
 import { Check, CheckCircle2, Clock3, FileText, Send, ShieldAlert, X } from "lucide-react";
 
@@ -26,6 +28,8 @@ type AuditLog = { id: string; action: string; status: string; target_type?: stri
 
 const statusMeta: Record<string, { label: string; className: string }> = {
   pending_confirmation: { label: "等待人工确认", className: "bg-amber-50 text-amber-800 border-amber-200" },
+  executing: { label: "执行中；长时间未完成请核对 GitHub", className: "bg-amber-50 text-amber-800 border-amber-200" },
+  unknown: { label: "结果待核对，请先检查 GitHub", className: "bg-amber-50 text-amber-800 border-amber-200" },
   executed: { label: "已确认并执行", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   cancelled: { label: "已取消", className: "bg-slate-100 text-slate-600 border-slate-200" },
   failed: { label: "执行失败", className: "bg-rose-50 text-rose-700 border-rose-200" }
@@ -40,7 +44,7 @@ export default function ActionDraftsPage() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function load(repo = repoId) {
+  const load = useStableCallback(async function load(repo = repoId) {
     const suffix = repo ? `?repo_id=${repo}` : "";
     const [draftItems, auditItems] = await Promise.all([
       apiGet<ActionDraft[]>(`/api/action-drafts${suffix}`),
@@ -48,7 +52,7 @@ export default function ActionDraftsPage() {
     ]);
     setDrafts(draftItems);
     setAudits(auditItems);
-  }
+  });
 
   useEffect(() => {
     apiGet<Repository[]>("/api/repos")
@@ -58,7 +62,7 @@ export default function ActionDraftsPage() {
         return load(items[0]?.id || "");
       })
       .catch(() => setRepos([]));
-  }, []);
+  }, [load]);
 
   async function createDraft() {
     if (!repoId || !content.trim()) return;

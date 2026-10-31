@@ -2,6 +2,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import asyncio
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -564,14 +565,12 @@ def scan_project_index(db: Session, repo: Repository) -> dict[str, Any]:
 
 
 async def scan_project_index_by_id(repo_id: uuid.UUID) -> None:
-    db = SessionLocal()
-    try:
-        repo = db.get(Repository, repo_id)
-        if repo is None:
-            return
-        scan_project_index(db, repo)
-    finally:
-        db.close()
+    def scan():
+        with SessionLocal() as db:
+            repo = db.get(Repository, repo_id)
+            if repo is not None:
+                scan_project_index(db, repo)
+    await asyncio.to_thread(scan)
 
 
 def is_snoozed(state: dict[str, Any]) -> bool:

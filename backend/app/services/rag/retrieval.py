@@ -468,6 +468,19 @@ def expand_parent_context(
     *,
     neighbor_window: int = 1,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    # Fetch each source once for the entire candidate batch, not once per hit.
+    source_ids = set()
+    for item in items:
+        try:
+            if item.get("source_id"):
+                source_ids.add(_as_uuid(item["source_id"]))
+        except (TypeError, ValueError):
+            pass
+    siblings_by_source = {}
+    if source_ids:
+        rows = db.query(Document).filter(Document.repo_id == _as_uuid(repo_id), Document.source_id.in_(source_ids)).all()
+        for row in rows:
+            siblings_by_source.setdefault((row.source_type, row.source_id), []).append(row)
     expanded: list[dict[str, Any]] = []
     expanded_items = 0
     expanded_chunks = 0
@@ -488,15 +501,7 @@ def expand_parent_context(
             retrieval["parent_expansion"] = {"expanded": False, "reason": "invalid source id"}
             expanded.append({**item, "retrieval": retrieval})
             continue
-        siblings = (
-            db.query(Document)
-            .filter(
-                Document.repo_id == _as_uuid(repo_id),
-                Document.source_type == source_type,
-                Document.source_id == source_uuid,
-            )
-            .all()
-        )
+        siblings = siblings_by_source.get((source_type, source_uuid), [])
         selected: list[Document] = []
         current_index = int(child_index)
         for sibling in siblings:

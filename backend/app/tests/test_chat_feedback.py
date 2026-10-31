@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 
 from app.api.routes import feedback as feedback_routes
-from app.db.models import AgentRun, Base, ChatFeedback, ChatMessage, ChatSession, Conversation, Repository
+from app.db.models import AgentRun, Base, ChatFeedback, ChatMessage, ChatSession, Conversation, Repository, User
 from app.schemas.feedback import ChatFeedbackCreate, ChatFeedbackReview
 
 
@@ -19,6 +19,10 @@ def _db_session():
 
 
 def _feedback_fixture(db):
+    actor = User(name="feedback-reviewer", role="developer")
+    db.add(actor)
+    db.flush()
+    db.info["actor_id"] = actor.id
     repo = Repository(owner="devflow", name="demo", full_name=f"devflow/demo-{uuid.uuid4().hex[:8]}")
     db.add(repo)
     db.flush()
