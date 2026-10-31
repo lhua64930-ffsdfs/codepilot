@@ -59,6 +59,24 @@ backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-local-em
 docker compose up -d postgres etcd minio milvus
 ```
 
+如果已在 Windows 安装 PostgreSQL，且项目已有 `.data/pgdata` 数据目录，可复用原数据库，不必再启动占用同一 5432 端口的容器：
+
+```powershell
+.\scripts\start_postgres.ps1
+# pg_ctl.exe 不在 PATH 时：
+.\scripts\start_postgres.ps1 -PostgresBinDirectory D:\postgresql\bin
+```
+
+脚本读取 `.env` 的连接目标，检查 PostgreSQL 主版本，按需启动已有实例，等待就绪，执行增量迁移并验证账号连接。重复执行不会重建数据库；没有已有数据目录时会明确报错。数据目录可通过 `-DataDirectory` 指定，运行日志在 `.data/pg.log`。这是按需启动入口，重启电脑后可重新运行；不修改系统服务的开机设置。[pg_ctl 官方说明](https://www.postgresql.org/docs/18/app-pg-ctl.html)
+
+在 `backend` 可单独检查连接和迁移状态：
+
+```powershell
+.venv/Scripts/python.exe -m app.db.doctor
+```
+
+输出不包含密码。`DATABASE_CONNECT_TIMEOUT_SECONDS=5` 限制 PostgreSQL 的单次连接等待时间。后端启动后，`GET /health` 表示进程存活；`GET /health/ready` 实查数据库和迁移版本，未就绪返回 HTTP 503，避免将「API 进程启动」误当作「数据库可用」。
+
 也可以按 `.env.example` 配置远程 Embedding / Rerank。更换向量模型、维度或 provider 后应重建索引，不能混用不同向量空间。
 
 启动后端：
@@ -87,6 +105,7 @@ npm run dev
 ## 常见问题
 
 - **页面提示后端不可达**：检查 API 进程、`NEXT_PUBLIC_API_BASE_URL` 与 CORS 地址；查看启动日志。
+- **PostgreSQL 无法连接**：先运行 `python -m app.db.doctor`。服务未启动时运行 `scripts/start_postgres.ps1` 或 `docker compose up -d postgres`；核对 `.env` 的主机、端口、库名、账号和密码。不要同时启动两个占用 5432 的实例，也不要删除原数据目录来解决连接问题。
 - **页面要求令牌**：这是 `DEMO_MODE=false` 的预期行为。使用管理员命令生成的令牌，不是 GitHub PAT。
 - **Milvus 不可用**：核对 Compose 宿主机端口 19531 与 URI，并检查 etcd、对象存储和 Milvus 日志。
 - **Embedding contract mismatch**：核对 provider、模型和维度；不要截断或补零混用向量。

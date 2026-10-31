@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +10,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
 
     database_url: str = "postgresql+psycopg://devflow:devflow@localhost:5432/devflow"
+    database_connect_timeout_seconds: int = Field(default=5, ge=1, le=30)
 
     github_token: str | None = None
     github_api_base_url: str = "https://api.github.com"

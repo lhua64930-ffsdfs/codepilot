@@ -25,7 +25,7 @@ CodePilot 是一个面向软件研发团队的全栈 AI Agent 工程项目。它
 | 项目里的规则写在哪里？ | 检索项目文档与上传知识，回答中展示证据与引用 |
 | 建议能直接改 GitHub 吗？ | 先形成草稿，再由具备审批权限的人确认，记录执行审计 |
 
-**当前验证快照（2026-10-31）：247 项后端测试通过（含 4 项真实 Docker 沙盒验证），TypeScript 检查通过，前端 Lint 零警告，Next.js 生产构建成功。**这些是工程验证结果，不等同于线上业务收益或模型准确率。
+**当前验证快照（2026-10-31）：254 项后端测试通过（含 4 项真实 Docker 沙盒验证），TypeScript 检查通过，前端 Lint 零警告，Next.js 生产构建成功。**这些是工程验证结果，不等同于线上业务收益或模型准确率。
 
 ## 项目界面
 
@@ -102,6 +102,8 @@ CodePilot 是一个面向软件研发团队的全栈 AI Agent 工程项目。它
 访问 `http://127.0.0.1:3019`。演示数据位于 `.data/docs-preview`，与现有业务库分开。截图复现与演示顺序见 [5 分钟演示指南](docs/demo_guide.md)。
 
 **可选：启用 CI 失败复现。**构建 `sandbox/python` 镜像、执行 `python -m alembic upgrade head`，并设置 `CI_SANDBOX_ENABLED=true`。随后在 CI 分析面板运行失败提交的 pytest，查看日志和退出码，再重新分析以引用验证结果。默认镜像需按项目预装依赖；命令失败不等于已复现原 CI 根因。完整步骤与限制见 [CI 复现沙盒](docs/ci_sandbox.md)。
+
+**本地 PostgreSQL 连接检查：**Windows 已有 `.data/pgdata` 时，运行 `.\scripts\start_postgres.ps1` 可按需启动原数据库、执行迁移并检查连接；在 `backend` 运行 `python -m app.db.doctor` 可单独诊断。`/health/ready` 实查数据库和迁移状态，未就绪返回 503。完整配置见 [启动指南](docs/getting_started.md)。
 
 ## 文档导航
 

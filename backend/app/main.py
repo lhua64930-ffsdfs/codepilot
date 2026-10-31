@@ -27,6 +27,7 @@ from app.api.routes import (
 )
 from app.core.config import settings
 from app.db.schema import verify_schema
+from app.db.doctor import database_readiness
 from app.services.authentication import authorize_api, current_user
 from app.services.jobs import job_worker_loop
 from app.db.session import engine, get_db
@@ -94,6 +95,11 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok", "app": settings.app_name}
+
+    @app.get("/health/ready")
+    def readiness() -> JSONResponse:
+        result = database_readiness(engine)
+        return JSONResponse(result, status_code=200 if result["status"] == "ready" else 503)
 
     @app.on_event("startup")
     async def initialize_services() -> None:
